@@ -1,0 +1,30 @@
+appId: app.madao.desktop
+productName: 码到
+copyright: Copyright © 2026 码到
+directories:
+  output: release
+files:
+  - dist/**
+  - package.json
+extraResources:
+  - from: resources/icon.png
+    to: icon.png
+asar: true
+win:
+  signAndEditExecutable: false
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+  artifactName: 码到-Setup-${version}-x64.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: 码到
+  uninstallDisplayName: 码到
+  installerLanguages:
+    - zh_CN
+    - en_US
+  language: 2052

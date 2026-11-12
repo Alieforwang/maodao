@@ -12,8 +12,8 @@
     "start": "electron .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "dist:win": "npm run build && electron-builder --win nsis --x64",
-    "shots": "node scripts/shots.mjs"
+    "e2e": "node scripts/build.mjs && node scripts/e2e.mjs",
+    "dist:win": "npm run build && electron-builder --win nsis --x64 --config electron-builder.yml"
   },
   "dependencies": {
     "imapflow": "^1.0.186",

@@ -1,0 +1,46 @@
+import { contextBridge, ipcRenderer } from "electron";
+import type { AccountDraft, AppState, CopyReason, Settings, ToastPayload } from "../shared/types.js";
+import type { OAuthEvent } from "./oauth.js";
+
+const api = {
+  getState: (): Promise<AppState> => ipcRenderer.invoke("state"),
+  onState: (callback: (state: AppState) => void) => {
+    const listener = (_event: unknown, state: AppState) => callback(state);
+    ipcRenderer.on("state", listener);
+    return () => {
+      ipcRenderer.removeListener("state", listener);
+    };
+  },
+  saveAccount: (draft: AccountDraft) => ipcRenderer.invoke("account-save", draft) as Promise<{ ok: true } | { ok: false; message: string }>,
+  deleteAccount: (id: string) => ipcRenderer.invoke("account-delete", id),
+  setEnabled: (id: string, enabled: boolean) => ipcRenderer.invoke("account-enabled", id, enabled),
+  updateSettings: (patch: Partial<Settings>) => ipcRenderer.invoke("settings", patch),
+  copyCode: (code: string, reason: CopyReason) => ipcRenderer.invoke("copy-code", code, reason) as Promise<string>,
+  clearHistory: () => ipcRenderer.invoke("history-clear"),
+  setPaused: (paused: boolean) => ipcRenderer.invoke("paused", paused),
+  startOAuth: (mode: "pkce" | "device") => ipcRenderer.invoke("oauth-start", mode),
+  cancelOAuth: () => ipcRenderer.invoke("oauth-cancel"),
+  onOAuth: (callback: (event: OAuthEvent) => void) => {
+    const listener = (_event: unknown, payload: OAuthEvent) => callback(payload);
+    ipcRenderer.on("oauth", listener);
+    return () => {
+      ipcRenderer.removeListener("oauth", listener);
+    };
+  },
+  openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
+  windowControl: (action: "minimize" | "maximize" | "close" | "show" | "quit") => ipcRenderer.invoke("window", action),
+  copyText: (text: string) => ipcRenderer.invoke("copy-text", text) as Promise<string>,
+  currentToast: (): Promise<ToastPayload | null> => ipcRenderer.invoke("toast-current"),
+  onToast: (callback: (payload: ToastPayload) => void) => {
+    const listener = (_event: unknown, payload: ToastPayload) => callback(payload);
+    ipcRenderer.on("toast", listener);
+    return () => {
+      ipcRenderer.removeListener("toast", listener);
+    };
+  },
+  dismissToast: () => ipcRenderer.invoke("toast-dismiss"),
+};
+
+contextBridge.exposeInMainWorld("madao", api);
+
+export type MadaoApi = typeof api;
