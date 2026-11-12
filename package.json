@@ -1,0 +1,40 @@
+{
+  "name": "madao",
+  "version": "1.0.0",
+  "private": true,
+  "description": "码到 — 常驻系统托盘的邮箱验证码提醒",
+  "author": "码到",
+  "main": "dist/main/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "start": "electron .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dist:win": "npm run build && electron-builder --win nsis --x64",
+    "shots": "node scripts/shots.mjs"
+  },
+  "dependencies": {
+    "imapflow": "^1.0.186",
+    "mailparser": "^3.7.3"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.5",
+    "@fontsource/noto-sans-sc": "^5.2.5",
+    "@types/mailparser": "^3.4.5",
+    "@types/node": "^22.10.5",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.2",
+    "png-to-ico": "^2.1.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  }
+}
