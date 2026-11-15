@@ -74,6 +74,8 @@ describe("邮箱预设", () => {
     };
     const options = buildImapOptions(account, { accessToken: "token-value" });
     expect(options.auth).toEqual({ user: "a@outlook.com", accessToken: "token-value" });
+    const aliased = buildImapOptions({ ...account, imapUser: "login@qq.com" }, { accessToken: "token-value" });
+    expect(aliased.auth).toEqual({ user: "login@qq.com", accessToken: "token-value" });
     expect(JSON.stringify(options)).not.toContain("pass");
   });
 

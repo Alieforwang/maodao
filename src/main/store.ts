@@ -116,6 +116,14 @@ export class AccountStore {
     this.persistConfig();
   }
 
+  setAlias(id: string, alias: string): void {
+    const account = this.config.accounts.find((item) => item.id === id);
+    if (!account) return;
+    const next = alias.trim();
+    account.alias = next || undefined;
+    this.persistConfig();
+  }
+
   replaceSecret(id: string, secret: SecretPayload): void {
     this.writeSecret(id, secret);
   }
@@ -166,11 +174,18 @@ export class AccountStore {
 
   saveOAuthAccount(input: {
     email: string;
+    loginName?: string;
+    imapUser?: string;
+    alias?: string;
+    replaceId?: string;
+    host?: string;
+    port?: number;
     accessToken: string;
     refreshToken?: string;
     expiresAt?: number;
   }): Account {
-    const existing = this.config.accounts.find((item) => item.provider === "outlook" && item.email === input.email);
+    const existing = (input.replaceId && this.config.accounts.find((item) => item.id === input.replaceId))
+      || this.config.accounts.find((item) => item.provider === "outlook" && item.email.toLowerCase() === input.email.toLowerCase());
     const id = existing?.id || crypto.randomUUID();
     const persisted = this.writeSecret(id, {
       accessToken: input.accessToken,
@@ -181,13 +196,16 @@ export class AccountStore {
       id,
       provider: "outlook",
       email: input.email,
-      host: PROVIDERS.outlook.host,
-      port: PROVIDERS.outlook.port,
+      host: input.host || existing?.host || PROVIDERS.outlook.host,
+      port: input.port || existing?.port || PROVIDERS.outlook.port,
       secure: true,
       authMethod: "oauth",
-      enabled: true,
+      enabled: existing?.enabled ?? true,
       secretUpdatedAt: Date.now(),
       secretPersisted: persisted,
+      loginName: input.loginName,
+      imapUser: input.imapUser,
+      alias: input.alias ?? existing?.alias,
     };
     if (existing) {
       const index = this.config.accounts.findIndex((item) => item.id === id);

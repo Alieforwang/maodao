@@ -3,9 +3,11 @@ import type { Account, AccountDraft, AppState, ProviderId } from "../shared/type
 import { PROVIDER_LIST, PROVIDERS, stripCredentialWhitespace } from "../shared/presets";
 import { GearIcon, HistoryIcon, MailIcon } from "./icons";
 import { formatWhen, statusOf } from "./format";
+import { outlookDisplay } from "../shared/outlookMailbox";
+import { OutlookAdd } from "./OutlookAdd";
 
 type Page = "accounts" | "history" | "settings";
-type DialogState = { title: string; account?: Account } | null;
+type DialogState = { title: string; account?: Account; autoLogin?: boolean } | null;
 
 export function App() {
   const api = window.madao;
@@ -58,7 +60,7 @@ export function App() {
         </nav>
         <main className="content">
           {page === "accounts" && (
-            <Accounts state={state} onAdd={() => setDialog({ title: "添加账号" })} onEdit={(account) => setDialog({ title: "编辑账号", account })} />
+            <Accounts state={state} onAdd={() => setDialog({ title: "添加账号" })} onEdit={(account) => setDialog({ title: "编辑账号", account })} onRelogin={(account) => setDialog({ title: "重新登录", account, autoLogin: true })} />
           )}
           {page === "history" && <History state={state} />}
           {page === "settings" && <Settings state={state} />}
@@ -69,7 +71,7 @@ export function App() {
   );
 }
 
-function Accounts({ state, onAdd, onEdit }: { state: AppState; onAdd: () => void; onEdit: (account: Account) => void }) {
+function Accounts({ state, onAdd, onEdit, onRelogin }: { state: AppState; onAdd: () => void; onEdit: (account: Account) => void; onRelogin: (account: Account) => void }) {
   const api = window.madao!;
   return (
     <div className="pane-accounts">
@@ -89,17 +91,21 @@ function Accounts({ state, onAdd, onEdit }: { state: AppState; onAdd: () => void
             const status = state.statuses.find((item) => item.accountId === account.id);
             const view = statusOf(status?.state, account.enabled && !state.paused, status?.detail || "");
             const preset = PROVIDERS[account.provider];
+            const shown = account.provider === "outlook" ? outlookDisplay(account) : null;
+            const needsRelogin = account.provider === "outlook" && status?.state === "auth_failed";
             return (
               <article className="account" key={account.id}>
                 <Brand provider={account.provider} />
                 <div>
-                  <h2>{preset.name}</h2>
-                  <div className="mail">{account.email}</div>
+                  <h2>{shown ? shown.title : preset.name}</h2>
+                  {shown ? (shown.title !== shown.mailbox && <div className="mail">{shown.mailbox}</div>) : <div className="mail">{account.email}</div>}
+                  {shown?.microsoftAccount && <div className="mail">微软账号：{shown.microsoftAccount}</div>}
                   <div className="meta">
-                    <i className={`dot ${view.kind}`} />
-                    <span className={view.kind}>{view.label}{view.extra ? ` · ${view.extra}` : ""}</span>
+                    <i className={`dot ${needsRelogin ? "bad" : view.kind}`} />
+                    <span className={needsRelogin ? "bad" : view.kind}>{needsRelogin ? "需要重新登录" : view.label}{!needsRelogin && view.extra ? ` · ${view.extra}` : ""}</span>
                     <span>· {account.host}:{account.port} · {preset.hint}</span>
                   </div>
+                  {needsRelogin && <button className="btn" type="button" style={{ marginTop: 8 }} onClick={() => onRelogin(account)}>重新登录</button>}
                 </div>
                 <button className="btn-quiet" type="button" onClick={() => onEdit(account)}>编辑</button>
                 <button className={`switch ${account.enabled ? "on" : ""}`} type="button" aria-pressed={account.enabled} aria-label={`${account.enabled ? "暂停" : "启用"} ${preset.name}`} onClick={() => api.setEnabled(account.id, !account.enabled)}><i /></button>
@@ -216,23 +222,25 @@ function Settings({ state }: { state: AppState }) {
         </div>
       </section>
       <section className="set-block">
-        <h2>Outlook 登录</h2>
-        <div className="group">
-          <div className="set-row">
-            <div style={{ flex: 1 }}>
-              <h3>Azure 客户端 ID（可选）</h3>
-              <p>留空即可登录个人 Outlook / Hotmail。只有你自己在 Azure 注册了应用时才需要填写。</p>
-              <div className="field" style={{ marginTop: 8 }}>
-                <input value={settings.outlookClientId} placeholder="留空使用内置客户端" onChange={(event) => set({ outlookClientId: event.target.value.trim() })} />
-              </div>
-              <h3 style={{ marginTop: 12 }}>自定义回调地址（可选）</h3>
-              <p>留空时，内置客户端使用 https://localhost，自己的客户端使用 http://127.0.0.1:45832/callback。</p>
-              <div className="field" style={{ marginTop: 8 }}>
-                <input value={settings.oauthRedirectUri} placeholder="例如 https://localhost" onChange={(event) => set({ oauthRedirectUri: event.target.value.trim() })} />
+        <details className="advanced">
+          <summary>高级 · 一般不需要填写</summary>
+          <div className="group">
+            <div className="set-row">
+              <div style={{ flex: 1 }}>
+                <h3>自定义 Azure 客户端 ID</h3>
+                <p>留空即可登录个人 Outlook / Hotmail。只有你自己在 Azure 注册了应用时才需要填写。</p>
+                <div className="field" style={{ marginTop: 8 }}>
+                  <input value={settings.outlookClientId} placeholder="一般不需要填写" onChange={(event) => set({ outlookClientId: event.target.value.trim() })} />
+                </div>
+                <h3 style={{ marginTop: 12 }}>自定义回调地址</h3>
+                <p>留空时，内置客户端使用 https://localhost，自己的客户端使用 http://127.0.0.1:45832/callback。</p>
+                <div className="field" style={{ marginTop: 8 }}>
+                  <input value={settings.oauthRedirectUri} placeholder="例如 https://localhost" onChange={(event) => set({ oauthRedirectUri: event.target.value.trim() })} />
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </details>
       </section>
     </div>
   );
@@ -250,7 +258,7 @@ function SetRow({ title, text, on, onToggle }: { title: string; text: string; on
   );
 }
 
-function AccountDialog({ state, dialog, message, setMessage, onClose }: { state: AppState; dialog: { title: string; account?: Account }; message: string; setMessage: (value: string) => void; onClose: () => void }) {
+function AccountDialog({ state, dialog, message, setMessage, onClose }: { state: AppState; dialog: DialogState & object; message: string; setMessage: (value: string) => void; onClose: () => void }) {
   const api = window.madao!;
   const initial = dialog.account?.provider || "qq";
   const [provider, setProvider] = useState<ProviderId>(initial);
@@ -259,16 +267,12 @@ function AccountDialog({ state, dialog, message, setMessage, onClose }: { state:
   const [secret, setSecret] = useState("");
   const [host, setHost] = useState(dialog.account?.host || preset.host);
   const [port, setPort] = useState(String(dialog.account?.port || preset.port));
-  const [oauthText, setOauthText] = useState("");
-  const [device, setDevice] = useState<{ userCode: string; verificationUri: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-
-  useEffect(() => api.onOAuth((event) => {
-    if (event.type === "device") setDevice({ userCode: event.userCode, verificationUri: event.verificationUri });
-    if (event.type === "progress") setOauthText(event.message);
-    if (event.type === "error") setOauthText(event.message);
-    if (event.type === "success") onClose();
-  }), [api, onClose]);
+  const providerRef = React.useRef(provider);
+  useEffect(() => {
+    if (providerRef.current === "outlook" && provider !== "outlook") void api.cancelOAuth();
+    providerRef.current = provider;
+  }, [api, provider]);
 
   const choose = (id: ProviderId) => {
     setProvider(id);
@@ -300,7 +304,7 @@ function AccountDialog({ state, dialog, message, setMessage, onClose }: { state:
     <div className="dialog-layer" onMouseDown={onClose}>
       <div className="dialog" role="dialog" aria-labelledby="dialog-title" onMouseDown={(event) => event.stopPropagation()}>
         <h1 id="dialog-title">{dialog.title}</h1>
-        <p className="lede">选邮箱类型后自动填写服务器。授权码只加密存在这台电脑上。</p>
+        <p className="lede">{provider === "outlook" ? "用微软官方页面登录。码到只保存登录后的授权，看不到密码。" : "选邮箱类型后自动填写服务器。授权码只加密存在这台电脑上。"}</p>
         <div className="providers">
           {PROVIDER_LIST.map((item) => (
             <button key={item.id} className={`provider ${provider === item.id ? "on" : ""}`} type="button" onClick={() => choose(item.id)}>
@@ -310,61 +314,48 @@ function AccountDialog({ state, dialog, message, setMessage, onClose }: { state:
             </button>
           ))}
         </div>
-        <div className="form-grid">
-          <div className="field wide">
-            <label htmlFor="email">邮箱地址</label>
-            <input id="email" value={email} placeholder={preset.placeholder} onChange={(event) => setEmail(event.target.value)} />
-          </div>
-          {preset.authMethod === "password" && (
-            <div className="field wide">
-              <label htmlFor="secret">{preset.secretLabel}</label>
-              <input
-                id="secret"
-                type="password"
-                value={secret}
-                placeholder={dialog.account ? "留空则保持原来的授权码" : "不是邮箱登录密码"}
-                onChange={(event) => setSecret(stripCredentialWhitespace(event.target.value))}
-                onPaste={(event) => {
-                  event.preventDefault();
-                  const pasted = stripCredentialWhitespace(event.clipboardData.getData("text"));
-                  const input = event.currentTarget;
-                  const next = stripCredentialWhitespace(`${input.value.slice(0, input.selectionStart ?? 0)}${pasted}${input.value.slice(input.selectionEnd ?? input.value.length)}`);
-                  setSecret(next);
-                }}
-              />
-            </div>
-          )}
-          <div className="field">
-            <label htmlFor="host">IMAP 服务器</label>
-            <input id="host" value={host} onChange={(event) => setHost(event.target.value)} />
-          </div>
-          <div className="field">
-            <label htmlFor="port">端口</label>
-            <input id="port" value={port} onChange={(event) => setPort(event.target.value)} />
-          </div>
-        </div>
-        {preset.authMethod === "oauth" && (
-          <div className="oauth-box" style={{ display: "block" }}>
-            <p>Outlook、Hotmail 个人账号已经不能用密码登录 IMAP。填好设置里的客户端 ID 后，用系统浏览器或设备码登录。</p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn-primary" type="button" onClick={() => api.startOAuth("pkce")}>用浏览器登录</button>
-              <button className="btn" type="button" onClick={() => api.startOAuth("device")}>用设备码登录</button>
-            </div>
-            {device && (
-              <div>
-                <div className="device-code">{device.userCode}</div>
-                <p>打开 {device.verificationUri} ，输入上面的代码。</p>
-                <button className="btn" type="button" onClick={() => api.copyText(device.userCode)}>复制设备码</button>
+        {preset.authMethod === "oauth" ? (
+          <OutlookAdd account={dialog.account} settings={state.settings} autoLogin={dialog.autoLogin} onClose={onClose} />
+        ) : (
+          <>
+            <div className="form-grid">
+              <div className="field wide">
+                <label htmlFor="email">邮箱地址</label>
+                <input id="email" value={email} placeholder={preset.placeholder} onChange={(event) => setEmail(event.target.value)} />
               </div>
-            )}
-            {oauthText && <p>{oauthText}</p>}
-          </div>
+              <div className="field wide">
+                <label htmlFor="secret">{preset.secretLabel}</label>
+                <input
+                  id="secret"
+                  type="password"
+                  value={secret}
+                  placeholder={dialog.account ? "留空则保持原来的授权码" : "不是邮箱登录密码"}
+                  onChange={(event) => setSecret(stripCredentialWhitespace(event.target.value))}
+                  onPaste={(event) => {
+                    event.preventDefault();
+                    const pasted = stripCredentialWhitespace(event.clipboardData.getData("text"));
+                    const input = event.currentTarget;
+                    const next = stripCredentialWhitespace(`${input.value.slice(0, input.selectionStart ?? 0)}${pasted}${input.value.slice(input.selectionEnd ?? input.value.length)}`);
+                    setSecret(next);
+                  }}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="host">IMAP 服务器</label>
+                <input id="host" value={host} onChange={(event) => setHost(event.target.value)} />
+              </div>
+              <div className="field">
+                <label htmlFor="port">端口</label>
+                <input id="port" value={port} onChange={(event) => setPort(event.target.value)} />
+              </div>
+            </div>
+            <div className="guide">
+              <h2>{preset.guideTitle}</h2>
+              <ol>{preset.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+              <p style={{ margin: "8px 0 0" }}><a href={preset.link} onClick={(event) => { event.preventDefault(); void api.openExternal(preset.link); }}>{preset.linkText}</a></p>
+            </div>
+          </>
         )}
-        <div className="guide">
-          <h2>{preset.guideTitle}</h2>
-          <ol>{preset.steps.map((step) => <li key={step}>{step}</li>)}</ol>
-          <p style={{ margin: "8px 0 0" }}><a href={preset.link} onClick={(event) => { event.preventDefault(); void api.openExternal(preset.link); }}>{preset.linkText}</a></p>
-        </div>
         {message && <p className="banner">{message}</p>}
         <div className="dialog-actions">
           {dialog.account && (

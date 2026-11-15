@@ -14,6 +14,12 @@ export interface Account {
   secretUpdatedAt: number;
   /** False when the OS cannot encrypt, so the secret stays in memory only. */
   secretPersisted: boolean;
+  /** Microsoft login name when it differs from the mailbox, for example a QQ address. */
+  loginName?: string;
+  /** IMAP XOAUTH2 username when it differs from the address shown to the user. */
+  imapUser?: string;
+  /** Optional label. The mailbox address stays visible. */
+  alias?: string;
 }
 
 export interface Settings {

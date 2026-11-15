@@ -2,6 +2,7 @@ import { ImapFlow } from "imapflow";
 import { decideNotification } from "../shared/decide.js";
 import { explainImapError, isAuthFailure } from "../shared/redact.js";
 import { parseRawMail } from "../shared/mail.js";
+import { imapLoginUser } from "../shared/outlookMailbox.js";
 import { needsImapId, normalizePassword } from "../shared/presets.js";
 import type { Account, AccountStatus, SecretPayload, Settings } from "../shared/types.js";
 import { refreshOutlookToken } from "./oauth.js";
@@ -41,7 +42,7 @@ export function buildImapOptions(account: Account, secret: SecretPayload) {
     secure: account.secure,
     doSTARTTLS: account.secure ? undefined : false,
     auth: secret.accessToken
-      ? { user: account.email, accessToken: secret.accessToken }
+      ? { user: imapLoginUser(account), accessToken: secret.accessToken }
       : { user: account.email, pass: normalizePassword(account.provider, secret.password || "") },
     clientInfo: {
       name: "Madao",
@@ -157,7 +158,7 @@ export class MailMonitor {
         };
         this.deps.replaceSecret(account.id, secret);
       } catch {
-        this.deps.onStatus({ accountId: account.id, state: "auth_failed", detail: "Outlook 登录已过期，请重新登录。" });
+        this.deps.onStatus({ accountId: account.id, state: "auth_failed", detail: "需要重新登录" });
         return;
       }
     }
@@ -189,7 +190,8 @@ export class MailMonitor {
       try { client.close(); } catch { /* already closed */ }
       if (signal.aborted) return;
       if (isAuthFailure(error)) {
-        this.deps.onStatus({ accountId: account.id, state: "auth_failed", detail: explainImapError(error, account.provider) });
+        const detail = account.provider === "outlook" && secret.accessToken ? "需要重新登录" : explainImapError(error, account.provider);
+        this.deps.onStatus({ accountId: account.id, state: "auth_failed", detail });
         logInfo("登录失败", { accountId: account.id, host: account.host });
         return;
       }

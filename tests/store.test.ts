@@ -75,4 +75,62 @@ describe("凭据存储", () => {
     expect(store.history).toHaveLength(20);
     expect(store.history[0].code).toBe("100024");
   });
+
+  it("重新登录同一个 Outlook 邮箱时保留账号和备注", () => {
+    const store = tempStore(hexBox());
+    const first = store.saveOAuthAccount({ email: "a@outlook.com", accessToken: "tok-1", refreshToken: "ref-1" });
+    store.setAlias(first.id, "工作");
+    const second = store.saveOAuthAccount({
+      email: "a@outlook.com",
+      loginName: "a@qq.com",
+      accessToken: "tok-2",
+      refreshToken: "ref-2",
+      replaceId: first.id,
+    });
+    expect(store.accounts).toHaveLength(1);
+    expect(second.id).toBe(first.id);
+    expect(second.alias).toBe("工作");
+    expect(second.loginName).toBe("a@qq.com");
+    expect(store.getSecret(first.id)?.accessToken).toBe("tok-2");
+  });
+
+  it("1.0.5 的 Outlook 账号没有新字段也能读出来", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "madao-old-"));
+    dirs.push(directory);
+    fs.writeFileSync(path.join(directory, "config.json"), JSON.stringify({
+      version: 1,
+      settings: {
+        openAtLogin: false,
+        startMinimized: false,
+        notifyOnlyCodes: true,
+        sound: true,
+        notificationSeconds: 30,
+        maxAgeMinutes: 5,
+        outlookClientId: "",
+        outlookTenant: "consumers",
+        oauthRedirectPort: 45832,
+        oauthRedirectUri: "",
+        autoCheckUpdates: true,
+      },
+      accounts: [{
+        id: "old",
+        provider: "outlook",
+        email: "old@outlook.com",
+        host: "outlook.office365.com",
+        port: 993,
+        secure: true,
+        authMethod: "oauth",
+        enabled: true,
+        secretUpdatedAt: 1,
+        secretPersisted: true,
+      }],
+      history: [],
+      seen: [],
+    }));
+    const store = new AccountStore(directory, hexBox());
+    store.load();
+    expect(store.accounts[0].email).toBe("old@outlook.com");
+    expect(store.accounts[0].loginName).toBeUndefined();
+    expect(store.accounts).toHaveLength(1);
+  });
 });

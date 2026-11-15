@@ -6,7 +6,10 @@ import { fileURLToPath } from "node:url";
 import { AccountStore } from "./store.js";
 import { createSecretBox } from "./secretBox.js";
 import { MailMonitor, type NotifyEvent } from "./monitor.js";
-import { OutlookLogin, type OAuthEvent } from "./oauth.js";
+import { OutlookLogin, readJwtClaims, type OAuthEvent, type OAuthStartOptions, type OAuthTokens } from "./oauth.js";
+import { chooseSavedMailbox, findDuplicateOutlook, mapOutlookFailure, readIdentity } from "../shared/outlookMailbox.js";
+import { PROVIDERS } from "../shared/presets.js";
+import { verifyOutlookMailbox } from "./outlookVerify.js";
 import { isCopyReason, type AccountStatus, type AppState, type HistoryItem, type ToastPayload } from "../shared/types.js";
 import { logInfo } from "./log.js";
 import { runHarness } from "./harness.js";
@@ -30,6 +33,8 @@ let latestToast: ToastPayload | null = null;
 const toastQueue: ToastPayload[] = [];
 let toastOpen = false;
 let login: OutlookLogin | null = null;
+let oauthGeneration = 0;
+let mailboxWait: { resolve: (email: string) => void; reject: (error: Error) => void } | null = null;
 const statuses = new Map<string, AccountStatus>();
 
 let store!: AccountStore;
@@ -346,32 +351,142 @@ function wireIpc(): void {
   ipcMain.handle("update-install", () => updater?.installNow());
   ipcMain.handle("toast-current", () => latestToast);
   ipcMain.handle("toast-dismiss", () => dismissToast());
-  ipcMain.handle("oauth-cancel", () => login?.cancel());
-  ipcMain.handle("oauth-start", async (_event, mode: "pkce" | "device") => {
+  ipcMain.handle("oauth-cancel", () => {
+    oauthGeneration += 1;
+    const wait = mailboxWait;
+    mailboxWait = null;
+    wait?.reject(new Error("已取消登录。"));
+    login?.cancel();
+  });
+  ipcMain.handle("oauth-mailbox", (_event, email: string) => {
+    const wait = mailboxWait;
+    mailboxWait = null;
+    if (!wait) return { ok: false as const, message: "没有正在进行的登录。" };
+    wait.resolve(String(email || ""));
+    return { ok: true as const };
+  });
+  ipcMain.handle("account-alias", (_event, id: string, alias: string) => {
+    store.setAlias(String(id || ""), String(alias || ""));
+    broadcast();
+  });
+  ipcMain.handle("outlook-fix-mailbox", async (_event, id: string, email: string) => {
+    const account = store.accounts.find((item) => item.id === id && item.provider === "outlook");
+    if (!account) return { ok: false as const, message: "找不到这个账号。" };
+    const mailbox = String(email || "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mailbox)) return { ok: false as const, message: "邮箱地址不正确。" };
+    if (findDuplicateOutlook(store.accounts, mailbox, account.id)) return { ok: false as const, message: "该邮箱已添加" };
+    const secret = store.getSecret(account.id);
+    if (!secret?.accessToken) return { ok: false as const, message: "需要重新登录" };
+    const result = await verifyOutlookMailbox({ user: mailbox, accessToken: secret.accessToken, host: account.host, port: account.port });
+    if (!result.ok) return { ok: false as const, message: mapOutlookFailure(result.message, { stage: "imap", customClient: false }).title };
+    const previous = account.email;
+    store.saveOAuthAccount({
+      email: mailbox,
+      loginName: account.loginName || (previous.toLowerCase() !== mailbox.toLowerCase() ? previous : undefined),
+      alias: account.alias,
+      replaceId: account.id,
+      host: account.host,
+      port: account.port,
+      accessToken: secret.accessToken,
+      refreshToken: secret.refreshToken,
+      expiresAt: secret.expiresAt,
+    });
+    monitor.sync();
+    broadcast();
+    return { ok: true as const, email: mailbox };
+  });
+  ipcMain.handle("oauth-start", async (_event, mode: "pkce" | "device", options?: OAuthStartOptions) => {
+    const generation = ++oauthGeneration;
+    const pending = mailboxWait;
+    mailboxWait = null;
+    pending?.reject(new Error("已取消登录。"));
     login?.cancel();
     login = new OutlookLogin();
+    let stage: "login" | "device" | "imap" = mode === "device" ? "device" : "login";
     const send = (event: OAuthEvent) => {
+      if (generation !== oauthGeneration) return;
       mainWindow?.webContents.send("oauth", event);
-      broadcast();
     };
     try {
       const tokens = mode === "device"
         ? await login.device(store.settings, send)
         : await login.pkce(store.settings, (url) => void shell.openExternal(url), send, openEmbeddedOutlookLogin);
-      if (!tokens.email) throw new Error("登录成功，但没有拿到邮箱地址。");
-      const account = store.saveOAuthAccount({
-        email: tokens.email || "",
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresAt: tokens.expiresAt,
-      });
-      monitor.sync();
-      broadcast();
-      send({ type: "success", email: account.email });
+      if (generation !== oauthGeneration) return;
+      stage = "imap";
+      await finishOutlookLogin(generation, tokens, options, send);
     } catch (error) {
-      send({ type: "error", message: error instanceof Error ? error.message : "登录失败。" });
+      if (generation !== oauthGeneration) return;
+      const raw = error instanceof Error ? error.message : "登录失败。";
+      const failure = mapOutlookFailure(raw, { stage, customClient: Boolean(store.settings.outlookClientId.trim()) });
+      send({ type: "error", message: failure.title, failure });
     }
   });
+}
+
+async function finishOutlookLogin(generation: number, tokens: OAuthTokens, options: OAuthStartOptions | undefined, send: (event: OAuthEvent) => void): Promise<void> {
+  if (!tokens.accessToken) throw new Error("登录成功，但没有拿到令牌。");
+  const claims = readJwtClaims(tokens.idToken);
+  if (!claims.email && tokens.email) claims.email = tokens.email;
+  const plan = readIdentity(claims);
+  const host = options?.host?.trim() || PROVIDERS.outlook.host;
+  const port = Number(options?.port) || PROVIDERS.outlook.port;
+  send({ type: "progress", message: "正在连接邮箱…" });
+  let worked: string | null = null;
+  let lastRaw = "";
+  for (const user of plan.tryOrder) {
+    if (generation !== oauthGeneration) return;
+    const result = await verifyOutlookMailbox({ user, accessToken: tokens.accessToken, host, port });
+    if (result.ok) {
+      worked = user;
+      break;
+    }
+    lastRaw = result.message;
+  }
+  let explicit = false;
+  let asked = false;
+  while (!worked) {
+    if (generation !== oauthGeneration) return;
+    if (!asked && !plan.mailboxFromClaims) {
+      send({ type: "need-mailbox", loginName: plan.loginName, suggestion: plan.loginName });
+    } else {
+      const failure = mapOutlookFailure(lastRaw || "AUTHENTICATIONFAILED", { stage: "imap", customClient: false });
+      send({ type: "error", message: failure.title, failure, loginName: plan.loginName, suggestion: plan.mailboxFromClaims || "" });
+    }
+    asked = true;
+    const entered = (await new Promise<string>((resolve, reject) => {
+      mailboxWait = { resolve, reject };
+    })).trim();
+    if (generation !== oauthGeneration) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entered)) {
+      lastRaw = "邮箱地址不正确";
+      continue;
+    }
+    send({ type: "progress", message: "正在连接邮箱…" });
+    const result = await verifyOutlookMailbox({ user: entered, accessToken: tokens.accessToken, host, port });
+    if (result.ok) {
+      worked = entered;
+      explicit = true;
+    } else lastRaw = result.message;
+  }
+  if (generation !== oauthGeneration) return;
+  const saved = chooseSavedMailbox(plan, worked, explicit);
+  const duplicate = findDuplicateOutlook(store.accounts, saved.email, options?.replaceId);
+  if (duplicate) {
+    send({ type: "duplicate", email: duplicate.email, accountId: duplicate.id });
+    return;
+  }
+  const account = store.saveOAuthAccount({
+    ...saved,
+    replaceId: options?.replaceId,
+    host,
+    port,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresAt: tokens.expiresAt,
+  });
+  monitor.sync();
+  broadcast();
+  send({ type: "success", email: account.email, loginName: account.loginName, accountId: account.id });
 }
 
 function applyLogin(openAtLogin: boolean): void {

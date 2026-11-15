@@ -40,8 +40,38 @@ export async function runHarness(input: {
   await main.webContents.executeJavaScript("window.__madao.openAdd()");
   await delay(300);
   if (shotDir) await shot(main, path.join(shotDir, "add-account.png"));
+  await main.webContents.executeJavaScript(`
+    const outlook = [...document.querySelectorAll(".provider")].find((button) => button.textContent.includes("Outlook"));
+    if (!outlook) throw new Error("找不到 Outlook 选项");
+    outlook.click();
+  `);
+  await delay(300);
+  const outlookUi = await main.webContents.executeJavaScript(`(() => {
+    const flow = document.querySelector(".outlook-flow");
+    const text = flow ? flow.innerText : "";
+    const advanced = flow ? flow.querySelector("details.advanced") : null;
+    return {
+      text,
+      advancedOpen: Boolean(advanced && advanced.open),
+      emailField: Boolean(document.querySelector("#email")),
+    };
+  })()`) as { text: string; advancedOpen: boolean; emailField: boolean };
+  if (!outlookUi.text.includes("登录 Microsoft 账号")) throw new Error("Outlook 添加页没有主登录按钮");
+  if (!outlookUi.text.includes("会打开微软官方登录页，码到不会看到你的密码")) throw new Error("Outlook 添加页没有密码说明");
+  if (!outlookUi.text.includes("登录窗口打不开？改用设备码登录")) throw new Error("Outlook 添加页没有设备码入口");
+  if (outlookUi.text.includes("IMAP 服务器")) throw new Error("高级选项默认展开了");
+  if (outlookUi.advancedOpen) throw new Error("高级选项不是收起的");
+  if (outlookUi.emailField) throw new Error("Outlook 添加页仍然要求先填邮箱");
+  if (shotDir) await shot(main, path.join(shotDir, "outlook-add.png"));
+  await main.webContents.executeJavaScript(`document.querySelector(".dialog-actions .btn")?.click()`);
+  await delay(200);
   await main.webContents.executeJavaScript("window.__madao.openSettings()");
   await delay(200);
+  const settingsUi = await main.webContents.executeJavaScript(`(() => {
+    const block = [...document.querySelectorAll("details.advanced")].find((item) => item.textContent.includes("一般不需要填写"));
+    return { found: Boolean(block), open: Boolean(block && block.open), dialog: Boolean(document.querySelector(".dialog")) };
+  })()`) as { found: boolean; open: boolean; dialog: boolean };
+  if (!settingsUi.found || settingsUi.open || settingsUi.dialog) throw new Error("设置里的 Azure 客户端 ID 没有收进高级选项");
   if (shotDir) await shot(main, path.join(shotDir, "settings.png"));
   await main.webContents.executeJavaScript("window.__madao.openAccounts()");
   await sendSmtp({

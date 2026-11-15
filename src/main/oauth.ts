@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import http from "node:http";
+import type { OutlookFailure } from "../shared/outlookMailbox.js";
 import type { Settings } from "../shared/types.js";
 import {
   buildAuthorizationCodeRequest,
@@ -26,38 +27,63 @@ export interface OAuthTokens {
   idToken?: string;
 }
 
+export interface OAuthStartOptions {
+  replaceId?: string;
+  host?: string;
+  port?: number;
+}
+
 export type OAuthEvent =
   | { type: "progress"; message: string }
-  | { type: "device"; userCode: string; verificationUri: string; message: string }
-  | { type: "success"; email: string }
-  | { type: "error"; message: string };
+  | { type: "device"; userCode: string; verificationUri: string; message: string; expiresIn: number }
+  | { type: "success"; email: string; loginName?: string; accountId: string }
+  | { type: "need-mailbox"; loginName: string; suggestion: string }
+  | { type: "duplicate"; email: string; accountId: string }
+  | { type: "error"; message: string; failure: OutlookFailure; loginName?: string; suggestion?: string };
+
+export function readJwtClaims(idToken: string | undefined): { email?: string; preferred_username?: string; upn?: string; emails?: string[] } {
+  if (!idToken) return {};
+  const part = idToken.split(".")[1];
+  if (!part) return {};
+  try {
+    const json = JSON.parse(Buffer.from(part, "base64url").toString("utf8")) as {
+      email?: string;
+      preferred_username?: string;
+      upn?: string;
+      emails?: string[];
+      verified_primary_email?: string;
+    };
+    const emails = [...(Array.isArray(json.emails) ? json.emails : [])];
+    if (json.verified_primary_email) emails.push(json.verified_primary_email);
+    return { email: json.email, preferred_username: json.preferred_username, upn: json.upn, emails };
+  } catch {
+    return {};
+  }
+}
 
 function base64url(buffer: Buffer): string {
   return buffer.toString("base64url");
 }
 
 export function readJwtEmail(idToken: string | undefined): string | undefined {
-  if (!idToken) return undefined;
-  const part = idToken.split(".")[1];
-  if (!part) return undefined;
-  try {
-    const json = JSON.parse(Buffer.from(part, "base64url").toString("utf8")) as {
-      email?: string;
-      preferred_username?: string;
-      upn?: string;
-    };
-    return json.email || json.preferred_username || json.upn;
-  } catch {
-    return undefined;
-  }
+  const claims = readJwtClaims(idToken);
+  return claims.email || claims.preferred_username || claims.upn || claims.emails?.[0];
 }
 
 async function postForm(url: string, body: URLSearchParams): Promise<Record<string, unknown>> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body,
+    });
+  } catch (error) {
+    const cause = error instanceof Error && "cause" in error ? error.cause : undefined;
+    const code = cause && typeof cause === "object" && "code" in cause ? String((cause as { code?: string }).code || "") : "";
+    const message = error instanceof Error ? error.message : "网络错误";
+    throw new Error(code ? `${code} ${message}` : `无法连接微软服务器 ${message}`);
+  }
   const json = (await response.json()) as Record<string, unknown>;
   if (!response.ok || typeof json.error === "string") {
     throw new Error(String(json.error_description || json.error || `登录服务返回 ${response.status}`));
@@ -135,9 +161,7 @@ export class OutlookLogin {
       verifier,
       scope: OUTLOOK_SCOPES,
     }));
-    const tokens = tokensFromJson(json);
-    if (!tokens.email) throw new Error("登录成功，但没有拿到邮箱地址。");
-    return tokens;
+    return tokensFromJson(json);
   }
 
   private embeddedCallback(
@@ -184,13 +208,15 @@ export class OutlookLogin {
     );
     const deviceCode = String(started.device_code || "");
     const interval = Math.max(5, Number(started.interval || 5));
+    const expiresIn = Math.max(30, Number(started.expires_in || 900));
     onEvent({
       type: "device",
       userCode: String(started.user_code || ""),
-      verificationUri: String(started.verification_uri || "https://microsoft.com/devicelogin"),
+      verificationUri: String(started.verification_uri || "https://microsoft.com/link"),
       message: String(started.message || "在浏览器里输入设备码。"),
+      expiresIn,
     });
-    const deadline = Date.now() + 15 * 60 * 1000;
+    const deadline = Date.now() + expiresIn * 1000;
     let wait = interval;
     while (!this.cancelled && Date.now() < deadline) {
       await delay(wait * 1000);
@@ -211,6 +237,7 @@ export class OutlookLogin {
         wait += 5;
         continue;
       }
+      if (error === "expired_token" || error === "code_expired" || /expired/i.test(error)) throw new Error("设备码已过期。");
       throw new Error(String(json.error_description || error || "设备码登录失败。"));
     }
     throw new Error(this.cancelled ? "已取消登录。" : "设备码已过期。");

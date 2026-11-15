@@ -61,13 +61,27 @@ export function openEmbeddedOutlookLogin(authorizeUrl: string, redirectUri: stri
       if (isRedirectNavigation(url, redirectUri)) event.preventDefault();
       consider(url);
     });
-    win.webContents.on("did-fail-load", (_event, _code, _description, validatedURL) => {
-      consider(validatedURL);
+    let pageReady = false;
+    const blankTimer = setTimeout(() => {
+      if (!pageReady) fail(new Error("登录窗口没打开"));
+    }, 30_000);
+    const markReady = (url: string) => {
+      if (pageReady || !url.startsWith("https://") || isRedirectNavigation(url, redirectUri)) return;
+      pageReady = true;
+      clearTimeout(blankTimer);
+    };
+    win.webContents.on("did-navigate", (_event, url) => markReady(url));
+    win.webContents.on("did-finish-load", () => markReady(win?.webContents.getURL() || ""));
+    win.webContents.on("did-fail-load", (_event, errorCode, _description, validatedURL, isMainFrame) => {
+      if (consider(validatedURL)) return;
+      if (!isMainFrame || errorCode === -3) return;
+      if (validatedURL.startsWith("http")) fail(new Error("登录窗口没打开"));
     });
     win.on("closed", () => fail(new Error("登录窗口已关闭。")));
     const timer = setTimeout(() => fail(new Error("登录超时。")), 5 * 60 * 1000);
     const cleanup = () => {
       clearTimeout(timer);
+      clearTimeout(blankTimer);
       if (filter) {
         try {
           session.webRequest.onBeforeRequest(filter, null);

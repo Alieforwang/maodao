@@ -76,8 +76,8 @@ export const PROVIDERS: Record<ProviderId, ProviderPreset> = {
   },
   outlook: {
     id: "outlook",
-    name: "Outlook",
-    hint: "浏览器登录",
+    name: "Outlook / Hotmail / Live",
+    hint: "微软登录",
     host: "outlook.office365.com",
     port: 993,
     letter: "O",

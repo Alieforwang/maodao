@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { AccountDraft, AppState, CopyReason, Settings, ToastPayload } from "../shared/types.js";
-import type { OAuthEvent } from "./oauth.js";
+import type { OAuthEvent, OAuthStartOptions } from "./oauth.js";
 
 const api = {
   getState: (): Promise<AppState> => ipcRenderer.invoke("state"),
@@ -20,8 +20,11 @@ const api = {
   setPaused: (paused: boolean) => ipcRenderer.invoke("paused", paused),
   checkForUpdates: () => ipcRenderer.invoke("update-check"),
   installUpdate: () => ipcRenderer.invoke("update-install"),
-  startOAuth: (mode: "pkce" | "device") => ipcRenderer.invoke("oauth-start", mode),
+  startOAuth: (mode: "pkce" | "device", options?: OAuthStartOptions) => ipcRenderer.invoke("oauth-start", mode, options),
   cancelOAuth: () => ipcRenderer.invoke("oauth-cancel"),
+  submitMailbox: (email: string) => ipcRenderer.invoke("oauth-mailbox", email) as Promise<{ ok: boolean; message?: string }>,
+  setAlias: (id: string, alias: string) => ipcRenderer.invoke("account-alias", id, alias),
+  fixMailbox: (id: string, email: string) => ipcRenderer.invoke("outlook-fix-mailbox", id, email) as Promise<{ ok: true; email: string } | { ok: false; message: string }>,
   onOAuth: (callback: (event: OAuthEvent) => void) => {
     const listener = (_event: unknown, payload: OAuthEvent) => callback(payload);
     ipcRenderer.on("oauth", listener);
