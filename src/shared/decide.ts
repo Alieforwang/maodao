@@ -1,7 +1,7 @@
 import { mergeRuleAndAi, type AiVerdict } from "./aiRecognize.js";
 import { extractFromMail, senderDomain, type Candidate } from "./extract.js";
 import { inferService } from "./service.js";
-import type { SenderPref } from "./types.js";
+import type { MailClass, MailSource, SenderPref } from "./types.js";
 
 export interface DecideInput {
   subject: string;
@@ -35,6 +35,43 @@ export type Decision =
       domain: string;
     };
 
+export interface MailRecognition {
+  classification: MailClass;
+  confidence: "high" | "medium" | "low";
+  source: MailSource;
+  code: string | null;
+  display: string | null;
+  candidates: string[];
+  displays: string[];
+  domain: string;
+  keyword: string | null;
+  selectedIndex: number;
+}
+
+export function describeRecognition(input: DecideInput): MailRecognition {
+  const domain = senderDomain(input.from);
+  const extracted = mergeRuleAndAi(extractFromMail({ subject: input.subject, body: input.body, html: input.html, from: input.from }), input.ai ?? null);
+  const ranked = extracted.candidates.slice(0, 3);
+  const selectedIndex = preferredIndex(ranked, input.senderPrefs?.[domain]?.preferIndex);
+  const chosen = ranked[selectedIndex] || ranked[0];
+  let classification: MailClass = "none";
+  if (extracted.confidence === "high" && chosen?.code) classification = "code";
+  else if (extracted.confidence === "medium" && ranked.length > 0) classification = "maybe";
+  else if (extracted.kind === "link" && extracted.verifyUrl) classification = "link";
+  return {
+    classification,
+    confidence: extracted.confidence,
+    source: extracted.keyword === "ai" ? "ai" : "rule",
+    code: classification === "none" || classification === "link" ? null : chosen?.code || null,
+    display: classification === "none" || classification === "link" ? null : chosen?.display || chosen?.code || null,
+    candidates: ranked.map((item) => item.code),
+    displays: ranked.map((item) => item.display),
+    domain,
+    keyword: extracted.keyword,
+    selectedIndex: classification === "maybe" || classification === "code" ? selectedIndex : 0,
+  };
+}
+
 export function decideNotification(input: DecideInput): Decision {
   if (input.alreadyNotified) return { action: "skip", reason: "already-notified" };
   if (!input.internalDate) return { action: "skip", reason: "no-date" };
@@ -44,18 +81,17 @@ export function decideNotification(input: DecideInput): Decision {
   }
   const domain = senderDomain(input.from);
   if (input.senderPrefs?.[domain]?.muted) return { action: "skip", reason: "muted" };
-  const extracted = mergeRuleAndAi(extractFromMail({ subject: input.subject, body: input.body, html: input.html, from: input.from }), input.ai ?? null);
+  const found = describeRecognition(input);
   const service = inferService(input.from, input.subject, input.body);
-  const ranked = extracted.candidates.slice(0, 3);
-  const selectedIndex = preferredIndex(ranked, input.senderPrefs?.[domain]?.preferIndex);
-  const chosen = ranked[selectedIndex] || ranked[0];
-  if (extracted.confidence === "high" && chosen) {
-    return { action: "notify", reason: "code", code: chosen.code, display: chosen.display, keyword: chosen.keyword, service, candidates: ranked, selectedIndex, verifyUrl: null, domain };
+  const ranked = found.candidates.map((code, index) => ({ code, display: found.displays[index] || code, keyword: found.keyword || "", score: 80 - index, source: "body" as const }));
+  if (found.classification === "code" && found.code) {
+    return { action: "notify", reason: "code", code: found.code, display: found.display, keyword: found.keyword, service, candidates: ranked, selectedIndex: found.selectedIndex, verifyUrl: null, domain };
   }
-  if (extracted.confidence === "medium" && ranked.length > 0) {
-    return { action: "notify", reason: "maybe", code: chosen.code, display: chosen.display, keyword: chosen.keyword, service, candidates: ranked, selectedIndex, verifyUrl: null, domain };
+  if (found.classification === "maybe" && found.code) {
+    return { action: "notify", reason: "maybe", code: found.code, display: found.display, keyword: found.keyword, service, candidates: ranked, selectedIndex: found.selectedIndex, verifyUrl: null, domain };
   }
-  if (extracted.kind === "link" && extracted.verifyUrl) {
+  if (found.classification === "link") {
+    const extracted = extractFromMail({ subject: input.subject, body: input.body, html: input.html, from: input.from });
     return { action: "notify", reason: "link", code: null, display: null, keyword: "link", service, candidates: [], selectedIndex: 0, verifyUrl: extracted.verifyUrl, domain };
   }
   if (!input.notifyAllMail) return { action: "skip", reason: "no-code" };

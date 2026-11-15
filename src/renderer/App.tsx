@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Account, AccountDraft, AppState, ProviderId } from "../shared/types";
 import { PROVIDER_LIST, PROVIDERS, stripCredentialWhitespace } from "../shared/presets";
-import { GearIcon, HistoryIcon, MailIcon } from "./icons";
+import { GearIcon, HistoryIcon, InboxIcon, MailIcon } from "./icons";
+import { AllMail } from "./AllMail";
 import { formatWhen, statusOf } from "./format";
 import { AI_PRESETS } from "../shared/aiRecognize";
 import { outlookDisplay } from "../shared/outlookMailbox";
 import { OutlookAdd } from "./OutlookAdd";
 
-type Page = "accounts" | "history" | "settings";
+type Page = "accounts" | "history" | "mail" | "settings";
 type DialogState = { title: string; account?: Account; autoLogin?: boolean } | null;
 
 export function App() {
@@ -56,6 +57,7 @@ export function App() {
         <nav className="nav">
           <button type="button" data-nav="accounts" onClick={() => setPage("accounts")}><MailIcon />邮箱</button>
           <button type="button" data-nav="history" onClick={() => setPage("history")}><HistoryIcon />记录</button>
+          <button type="button" data-nav="mail" onClick={() => setPage("mail")}><InboxIcon />全部邮件</button>
           <button type="button" data-nav="settings" onClick={() => setPage("settings")}><GearIcon />设置</button>
           <div className="nav-foot">{state.paused ? "监听已暂停" : `${listening} 个邮箱在监听`}<br />验证码不自动复制</div>
         </nav>
@@ -64,6 +66,7 @@ export function App() {
             <Accounts state={state} onAdd={() => setDialog({ title: "添加账号" })} onEdit={(account) => setDialog({ title: "编辑账号", account })} onRelogin={(account) => setDialog({ title: "重新登录", account, autoLogin: true })} />
           )}
           {page === "history" && <History state={state} />}
+          {page === "mail" && <AllMail state={state} />}
           {page === "settings" && <Settings state={state} />}
         </main>
       </div>

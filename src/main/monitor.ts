@@ -1,12 +1,12 @@
 import { ImapFlow } from "imapflow";
 import { cachedOrThrottled, rememberAiCall, requestAiVerdict, shouldAskAi, statusLine, type AiMemory, type AiSettings, type AiVerdict } from "../shared/aiRecognize.js";
-import { decideNotification } from "../shared/decide.js";
+import { decideNotification, describeRecognition, type MailRecognition } from "../shared/decide.js";
 import { extractFromMail } from "../shared/extract.js";
 import { explainImapError, isAuthFailure } from "../shared/redact.js";
 import { parseRawMail } from "../shared/mail.js";
 import { imapLoginUser } from "../shared/outlookMailbox.js";
 import { needsImapId, normalizePassword } from "../shared/presets.js";
-import type { Account, AccountStatus, SecretPayload, Settings } from "../shared/types.js";
+import type { Account, AccountStatus, SecretPayload, Settings, StoredMail } from "../shared/types.js";
 import { refreshOutlookToken } from "./oauth.js";
 import { logInfo } from "./log.js";
 
@@ -43,6 +43,7 @@ export interface MonitorDeps {
   remember(messageId: string): void;
   onStatus(status: AccountStatus): void;
   onNotify(event: NotifyEvent): void;
+  onMail?(mail: StoredMail): void;
   onAiStatus?(message: string): void;
   getAiKey(): string;
 }
@@ -363,6 +364,40 @@ export class MailMonitor {
       senderPrefs: settings.senderPrefs,
       ai,
     });
+    if (!this.deps.hasSeen(id)) {
+      const found = describeRecognition({
+        subject,
+        from,
+        body: text,
+        html,
+        internalDate: receivedAt,
+        now: Date.now(),
+        uid: message.uid,
+        baselineUid: 0,
+        maxAgeMs: Number.MAX_SAFE_INTEGER,
+        notifyAllMail: false,
+        alreadyNotified: false,
+        senderPrefs: settings.senderPrefs,
+        ai,
+      });
+      this.deps.onMail?.({
+        id,
+        accountId: account.id,
+        email: account.email,
+        from,
+        subject: subject || "（无标题）",
+        text,
+        receivedAt,
+        classification: found.classification,
+        confidence: found.confidence,
+        source: found.source,
+        code: found.code,
+        display: found.display,
+        candidates: found.candidates,
+        displays: found.displays,
+        domain: found.domain,
+      });
+    }
     this.deps.remember(id);
     if (decision.action !== "notify") return;
     if ((decision.reason === "code" || decision.reason === "maybe") && !decision.code) return;
@@ -386,6 +421,25 @@ export class MailMonitor {
       html,
     });
     logInfo(decision.code ? "识别到验证码" : "新邮件通知", { accountId: account.id, length: decision.code?.length || 0 });
+  }
+
+  async review(mail: Pick<StoredMail, "id" | "subject" | "from" | "text">): Promise<MailRecognition> {
+    const settings = this.deps.getSettings();
+    const ai = await this.lookupAi(`${mail.id}:review:${Date.now()}`, mail.subject, mail.from, mail.text, "");
+    return describeRecognition({
+      subject: mail.subject,
+      from: mail.from,
+      body: mail.text,
+      internalDate: Date.now(),
+      now: Date.now(),
+      uid: 1,
+      baselineUid: 0,
+      maxAgeMs: Number.MAX_SAFE_INTEGER,
+      notifyAllMail: false,
+      alreadyNotified: false,
+      senderPrefs: settings.senderPrefs,
+      ai,
+    });
   }
 }
 

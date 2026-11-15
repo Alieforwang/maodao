@@ -6,9 +6,12 @@ import {
   type Account,
   type AccountDraft,
   type HistoryItem,
+  type MailSummary,
   type SecretPayload,
   type Settings,
+  type StoredMail,
 } from "../shared/types.js";
+import { applyCorrection, correctionPreference, pruneMails, sanitizeMailText } from "../shared/mailLog.js";
 import { PROVIDERS, normalizePassword } from "../shared/presets.js";
 
 interface ConfigFile {
@@ -30,6 +33,7 @@ const EMPTY: ConfigFile = {
 export class AccountStore {
   private config: ConfigFile = structuredClone(EMPTY);
   private secrets = new Map<string, SecretPayload>();
+  private mails: StoredMail[] = [];
 
   constructor(
     private readonly directory: string,
@@ -53,6 +57,9 @@ export class AccountStore {
         seen: (parsed.seen || []).slice(-300),
       };
     }
+    this.mails = this.readMails();
+    this.mails = this.prune(this.mails);
+    this.writeMails();
     const secretsPath = this.secretsFile();
     if (this.box.available && fs.existsSync(secretsPath)) {
       const encoded = JSON.parse(fs.readFileSync(secretsPath, "utf8")) as Record<string, string>;
@@ -76,6 +83,14 @@ export class AccountStore {
 
   get history(): HistoryItem[] {
     return this.config.history;
+  }
+
+  get mailIndex(): MailSummary[] {
+    return this.mails.map(({ text: _text, displays: _displays, ...summary }) => summary);
+  }
+
+  getMail(id: string): StoredMail | undefined {
+    return this.mails.find((mail) => mail.id === id);
   }
 
   updateSettings(patch: Partial<Settings>): Settings {
@@ -120,6 +135,41 @@ export class AccountStore {
   addHistory(item: HistoryItem): void {
     this.config.history = [item, ...this.config.history.filter((entry) => entry.id !== item.id)].slice(0, 20);
     this.persistConfig();
+  }
+
+  recordMail(mail: StoredMail, replace = false): StoredMail {
+    const next = { ...mail, text: sanitizeMailText(mail.text) };
+    const index = this.mails.findIndex((item) => item.id === next.id);
+    if (index >= 0 && !replace) return this.mails[index];
+    if (index >= 0) this.mails[index] = next;
+    else this.mails.unshift(next);
+    this.mails = this.prune(this.mails);
+    this.writeMails();
+    return this.mails.find((item) => item.id === next.id) || next;
+  }
+
+  correctMail(id: string, action: { kind: "code" | "link" | "none"; code?: string }): StoredMail | undefined {
+    const current = this.mails.find((mail) => mail.id === id);
+    if (!current) return undefined;
+    const updated = applyCorrection(current, action);
+    const domain = current.domain;
+    if (domain) {
+      const prefs = { ...(this.config.settings.senderPrefs || {}) };
+      prefs[domain] = correctionPreference({
+        action: action.kind,
+        code: action.code,
+        candidates: current.candidates,
+        existing: prefs[domain],
+      });
+      this.config.settings = { ...this.config.settings, senderPrefs: prefs };
+      this.persistConfig();
+    }
+    return this.recordMail(updated, true);
+  }
+
+  clearMails(): void {
+    this.mails = [];
+    this.writeMails();
   }
 
   clearHistory(): void {
@@ -266,5 +316,31 @@ export class AccountStore {
 
   private secretsFile(): string {
     return path.join(this.directory, "secrets.json");
+  }
+
+  private mailsFile(): string {
+    return path.join(this.directory, "mails.json");
+  }
+
+  private readMails(): StoredMail[] {
+    const file = this.mailsFile();
+    if (!fs.existsSync(file)) return [];
+    try {
+      const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as StoredMail[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private writeMails(): void {
+    fs.mkdirSync(this.directory, { recursive: true });
+    fs.writeFileSync(this.mailsFile(), JSON.stringify(this.mails));
+  }
+
+  private prune(mails: StoredMail[]): StoredMail[] {
+    const days = this.config.settings.mailRetentionDays || 30;
+    const perAccount = this.config.settings.mailRetentionCount || 500;
+    return pruneMails(mails, { now: Date.now(), days, perAccount });
   }
 }

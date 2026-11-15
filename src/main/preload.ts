@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { AccountDraft, AppState, CopyReason, Settings, ToastPayload } from "../shared/types.js";
+import type { AccountDraft, AppState, CopyReason, Settings, StoredMail, ToastPayload } from "../shared/types.js";
 import type { OAuthEvent, OAuthStartOptions } from "./oauth.js";
 
 const api = {
@@ -17,6 +17,11 @@ const api = {
   updateSettings: (patch: Partial<Settings>) => ipcRenderer.invoke("settings", patch),
   setAiKey: (key: string) => ipcRenderer.invoke("ai-key", key) as Promise<{ saved: boolean; persisted: boolean }>,
   testAi: () => ipcRenderer.invoke("ai-test") as Promise<string>,
+  getMail: (id: string) => ipcRenderer.invoke("mail-get", id) as Promise<StoredMail | null>,
+  correctMail: (id: string, action: { kind: "code" | "link" | "none"; code?: string }) => ipcRenderer.invoke("mail-correct", id, action) as Promise<StoredMail | null>,
+  clearMails: () => ipcRenderer.invoke("mail-clear"),
+  exportMail: (id: string) => ipcRenderer.invoke("mail-export", id) as Promise<string>,
+  rerecognizeMail: (id: string) => ipcRenderer.invoke("mail-rerecognize", id) as Promise<StoredMail | null>,
   copyCode: (code: string, reason: CopyReason) => ipcRenderer.invoke("copy-code", code, reason) as Promise<string>,
   clearHistory: () => ipcRenderer.invoke("history-clear"),
   setPaused: (paused: boolean) => ipcRenderer.invoke("paused", paused),

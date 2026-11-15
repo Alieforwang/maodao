@@ -59,6 +59,10 @@ function createMonitor(): MailMonitor {
     broadcast();
   },
   onNotify: (event) => deliver(event),
+  onMail: (mail) => {
+    store.recordMail(mail);
+    broadcast();
+  },
   onAiStatus: (message) => {
     aiStatus = message;
     broadcast();
@@ -76,6 +80,7 @@ function snapshot(): AppState {
     accounts: store.accounts,
     statuses: store.accounts.map((account) => statuses.get(account.id) || { accountId: account.id, state: account.enabled ? "connecting" : "disabled", detail: "" }),
     history: store.history,
+    mails: store.mailIndex,
     settings: store.settings,
     encryptionAvailable: store.encryptionAvailable,
     paused,
@@ -317,6 +322,49 @@ function wireIpc(): void {
     store.setEnabled(id, enabled);
     monitor.sync();
     broadcast();
+  });
+  ipcMain.handle("mail-get", (_event, id: unknown) => store.getMail(typeof id === "string" ? id : ""));
+  ipcMain.handle("mail-correct", (_event, id: unknown, action: { kind?: "code" | "link" | "none"; code?: string }) => {
+    const updated = store.correctMail(typeof id === "string" ? id : "", { kind: action?.kind || "none", code: action?.code });
+    broadcast();
+    return updated || null;
+  });
+  ipcMain.handle("mail-clear", () => {
+    store.clearMails();
+    broadcast();
+  });
+  ipcMain.handle("mail-export", (_event, id: unknown) => {
+    const mail = store.getMail(typeof id === "string" ? id : "");
+    if (!mail) return "";
+    const fixture = toRedactedFixture({
+      from: mail.from,
+      subject: mail.subject,
+      text: mail.text,
+      expected: mail.classification === "code" ? mail.code : null,
+      kind: mail.classification === "maybe" ? "code" : mail.classification === "link" ? "link" : "none",
+      recipient: mail.email,
+    });
+    const json = `${JSON.stringify(fixture, null, 2)}\n`;
+    clipboard.writeText(json);
+    return json;
+  });
+  ipcMain.handle("mail-rerecognize", async (_event, id: unknown) => {
+    const mail = store.getMail(typeof id === "string" ? id : "");
+    if (!mail) return null;
+    const found = await monitor.review(mail);
+    const updated = store.recordMail({
+      ...mail,
+      classification: found.classification,
+      confidence: found.confidence,
+      source: found.source,
+      code: found.code,
+      display: found.display,
+      candidates: found.candidates,
+      displays: found.displays,
+      domain: found.domain,
+    }, true);
+    broadcast();
+    return updated;
   });
   ipcMain.handle("ai-key", (_event, key: unknown) => {
     const persisted = store.setAiKey(typeof key === "string" ? key : "");

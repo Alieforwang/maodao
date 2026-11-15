@@ -46,6 +46,10 @@ export interface Settings {
   aiModel: string;
   /** 高级：连高置信的规则结果也再问一次模型，但模型不能推翻高置信规则。 */
   aiEveryMessage: boolean;
+  /** 本地全部邮件保留天数。 */
+  mailRetentionDays: 7 | 30 | 90;
+  /** 每个邮箱在本地最多保留多少封。 */
+  mailRetentionCount: 200 | 500 | 1000;
 }
 
 export interface SenderPref {
@@ -135,6 +139,7 @@ export interface AppState {
   accounts: Account[];
   statuses: AccountStatus[];
   history: HistoryItem[];
+  mails: MailSummary[];
   settings: Settings;
   encryptionAvailable: boolean;
   paused: boolean;
@@ -163,7 +168,33 @@ export const DEFAULT_SETTINGS: Settings = {
   aiBaseUrl: "",
   aiModel: "",
   aiEveryMessage: false,
+  mailRetentionDays: 30,
+  mailRetentionCount: 500,
 };
+
+export type MailClass = "code" | "maybe" | "link" | "none";
+export type MailSource = "rule" | "ai" | "user";
+
+export interface MailSummary {
+  id: string;
+  accountId: string;
+  email: string;
+  from: string;
+  subject: string;
+  receivedAt: number;
+  classification: MailClass;
+  confidence: "high" | "medium" | "low";
+  source: MailSource;
+  code: string | null;
+  display: string | null;
+  candidates: string[];
+  domain: string;
+}
+
+export interface StoredMail extends MailSummary {
+  text: string;
+  displays: string[];
+}
 
 export const COPY_REASONS: readonly CopyReason[] = [
   "notification-click",
