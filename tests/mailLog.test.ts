@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { AccountStore } from "../src/main/store.js";
 import { toRedactedFixture } from "../src/shared/fixtureExport.js";
-import { correctionPreference, filterMails, pruneMails, sanitizeMailText } from "../src/shared/mailLog.js";
+import { correctionPreference, filterMails, pruneMails, rerecognizeNote, sanitizeMailText } from "../src/shared/mailLog.js";
 import { unavailableSecretBox } from "../src/shared/secrets.js";
 import type { MailSummary, StoredMail } from "../src/shared/types.js";
 
@@ -27,6 +27,11 @@ function mail(partial: Partial<StoredMail> & Pick<StoredMail, "id" | "accountId"
 }
 
 describe("全部邮件", () => {
+  it("手动分类的邮件重新识别时说明不会覆盖", () => {
+    expect(rerecognizeNote("user")).toBe("手动分类不会被覆盖。");
+    expect(rerecognizeNote("rule")).toBe("已重新识别。");
+  });
+
   it("按时间和每个邮箱的数量裁剪", () => {
     const now = Date.parse("2026-11-15T00:00:00Z");
     const day = 24 * 60 * 60 * 1000;

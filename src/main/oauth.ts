@@ -38,7 +38,7 @@ export type OAuthEvent =
   | { type: "device"; userCode: string; verificationUri: string; message: string; expiresIn: number }
   | { type: "success"; email: string; loginName?: string; accountId: string }
   | { type: "need-mailbox"; loginName: string; suggestion: string }
-  | { type: "duplicate"; email: string; accountId: string }
+  | { type: "duplicate"; email: string; accountId: string; loginName?: string; attemptedEmail: string }
   | { type: "error"; message: string; failure: OutlookFailure; loginName?: string; suggestion?: string };
 
 export function readJwtClaims(idToken: string | undefined): { email?: string; preferred_username?: string; upn?: string; emails?: string[] } {

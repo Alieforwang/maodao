@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { toRedactedFixture } from "../src/shared/fixtureExport.js";
+import { redactSensitive, toRedactedFixture } from "../src/shared/fixtureExport.js";
+import { classifyFixture, loadFixtures } from "./codeFixtures.js";
 
 describe("脱敏样本", () => {
   it("导出成样本 JSON，不含收件地址、手机号和令牌", () => {
@@ -46,5 +47,35 @@ describe("脱敏样本", () => {
     expect(dumped).not.toContain("0123456789abcdef0123456789abcdef");
     expect(dumped).not.toContain("555-0123");
     expect(dumped).toContain("https://link.example");
+  });
+
+  it("去掉 Bearer 头、不带协议的链接、token、sk- 密钥、美国本地号码和编码邮箱", () => {
+    const cases: Array<[string, string]> = [
+      ["Authorization: Bearer abcdef1234567890xyz", "abcdef1234567890xyz"],
+      ["www.link.example/verify?token=abcDEF123456xyz", "abcDEF123456xyz"],
+      ["Your token: XyZ12345abcQ", "XyZ12345abcQ"],
+      ["sk-live-SECRETKEY1234567890", "SECRETKEY1234567890"],
+      ["Call (415) 555-0123 today", "555-0123"],
+      ["write ada%2540example.com outside", "ada%2540example.com"],
+      ["mailbox YWRhQGV4YW1wbGUuY29t", "YWRhQGV4YW1wbGUuY29t"],
+    ];
+    for (const [input, secret] of cases) {
+      expect(redactSensitive(input, "ada@example.com")).not.toContain(secret);
+    }
+    expect(redactSensitive("验证码 482913，还有 123-456 和 00482913", "ada@example.com")).toContain("482913");
+    expect(redactSensitive("验证码 482913，还有 123-456 和 00482913")).toContain("123-456");
+    expect(redactSensitive("验证码 482913，还有 123-456 和 00482913")).toContain("00482913");
+  });
+
+  it("脱敏后再识别，样本里的码和类型不变", () => {
+    for (const sample of loadFixtures()) {
+      const redacted = {
+        ...sample,
+        subject: redactSensitive(sample.subject),
+        text: redactSensitive(sample.text || ""),
+        html: sample.html ? redactSensitive(sample.html) : undefined,
+      };
+      expect(classifyFixture(redacted)).toEqual(classifyFixture(sample));
+    }
   });
 });

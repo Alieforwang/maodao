@@ -624,7 +624,7 @@ async function finishOutlookLogin(generation: number, tokens: OAuthTokens, optio
   const saved = chooseSavedMailbox(plan, worked, explicit);
   const duplicate = findDuplicateOutlook(store.accounts, saved.email, options?.replaceId, saved.loginName);
   if (duplicate) {
-    send({ type: "duplicate", email: duplicate.email, accountId: duplicate.id });
+    send({ type: "duplicate", email: duplicate.email, loginName: duplicate.loginName, attemptedEmail: saved.email, accountId: duplicate.id });
     return;
   }
   const account = store.saveOAuthAccount({

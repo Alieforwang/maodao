@@ -120,4 +120,18 @@ describe("AI 识别", () => {
     const word = interpretAiContent('{"kind":"code","code":"use","confidence":"high","reason":""}', "Please use the app daily.");
     expect("accepted" in word && word.accepted).toBe(false);
   });
+
+  it("纯字母的普通单词即使出现在原文里也不当成验证码", () => {
+    const original = "Please use the app daily today.";
+    for (const word of ["daily", "today", "Please"]) {
+      const parsed = interpretAiContent(`{"kind":"code","code":"${word}","confidence":"high","reason":""}`, original);
+      expect(parsed).toMatchObject({ accepted: false, code: word });
+    }
+    const kept = interpretAiContent('{"kind":"code","code":"A48291","confidence":"high","reason":""}', "Your code is A48291.");
+    expect(kept).toMatchObject({ accepted: true, code: "A48291" });
+    const rule = extractFromMail({ subject: "Hello", body: original, from: "notify@example.com" });
+    const merged = mergeRuleAndAi(rule, { kind: "code", code: "daily", confidence: "high", reason: "", accepted: true });
+    expect(merged.code).not.toBe("daily");
+    expect(merged.keyword).not.toBe("ai");
+  });
 });

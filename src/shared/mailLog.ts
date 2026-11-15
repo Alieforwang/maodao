@@ -1,5 +1,9 @@
 import type { MailClass, MailSource, MailSummary, SenderPref, StoredMail } from "./types.js";
 
+export function rerecognizeNote(source: MailSource | undefined): string {
+  return source === "user" ? "手动分类不会被覆盖。" : "已重新识别。";
+}
+
 export function sanitizeMailText(value: string): string {
   return value
     .replace(/<script[\s\S]*?<\/script>/gi, " ")

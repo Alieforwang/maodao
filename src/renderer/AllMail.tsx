@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { AppState, MailClass, StoredMail } from "../shared/types";
-import { classLabel, filterMails, highlightCandidates, sourceLabel } from "../shared/mailLog";
+import { classLabel, filterMails, highlightCandidates, rerecognizeNote, sourceLabel } from "../shared/mailLog";
 import { formatWhen } from "./format";
 
 const CLASSES: Array<{ id: MailClass | "all"; label: string }> = [
@@ -119,7 +119,7 @@ export function AllMail({ state }: { state: AppState }) {
                 <button className="btn" type="button" onClick={() => void correct("none")}>标为非验证码</button>
               </div>
               <div className="dialog-actions">
-                <button className="btn" type="button" onClick={() => void api.rerecognizeMail(detail.id).then((mail) => { if (mail) { setDetail(mail); setDraftCode(mail.code || ""); setNote("已重新识别。"); } })}>重新识别</button>
+                <button className="btn" type="button" onClick={() => void api.rerecognizeMail(detail.id).then((mail) => { if (mail) { setDetail(mail); setDraftCode(mail.code || ""); setNote(rerecognizeNote(mail.source)); } })}>重新识别</button>
                 <button className="btn" type="button" onClick={() => void api.exportMail(detail.id).then(() => setNote("脱敏样本已复制，可以贴进样本集。"))}>导出脱敏样本</button>
               </div>
               {note && <p className="hint">{note}</p>}

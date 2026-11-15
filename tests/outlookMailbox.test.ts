@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   chooseSavedMailbox,
+  deviceCodeButtonLabel,
+  duplicateOutlookMessage,
   findDuplicateOutlook,
   mergeOutlookAccounts,
   imapLoginUser,
@@ -75,6 +77,28 @@ describe("Outlook 收信地址", () => {
     expect(kept.loginName).toBe("example123@qq.com");
     expect(kept.id).toBe("new");
     expect(merged.reassign.map((item) => item.from)).toContain("old");
+  });
+});
+
+describe("重复账号和设备码按钮", () => {
+  it("命中旧账号时同时写出已有登录名和这次的收信地址", () => {
+    expect(duplicateOutlookMessage(
+      { email: "example123@qq.com" },
+      "wzs.example@outlook.com",
+    )).toEqual([
+      "已有账号：example123@qq.com",
+      "这次登录的收信地址是 wzs.example@outlook.com，和已有账号是同一个微软账号。",
+    ]);
+    expect(duplicateOutlookMessage(
+      { email: "wzs.example@outlook.com", loginName: "example123@qq.com" },
+      "wzs.example@outlook.com",
+    )).toEqual(["已有账号：wzs.example@outlook.com（微软账号：example123@qq.com）"]);
+  });
+
+  it("www.microsoft.com/link 也显示设备码页面的按钮文字", () => {
+    expect(deviceCodeButtonLabel("https://www.microsoft.com/link")).toBe("复制代码并打开 microsoft.com/link");
+    expect(deviceCodeButtonLabel("https://microsoft.com/link")).toBe("复制代码并打开 microsoft.com/link");
+    expect(deviceCodeButtonLabel("https://login.microsoftonline.com/common/oauth2/deviceauth")).toBe("复制代码并打开登录页");
   });
 });
 

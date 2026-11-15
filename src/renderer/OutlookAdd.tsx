@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import type { Account, Settings } from "../shared/types";
 import type { OutlookFailure } from "../shared/outlookMailbox";
+import { deviceCodeButtonLabel, duplicateOutlookMessage } from "../shared/outlookMailbox";
 import { PROVIDERS } from "../shared/presets";
 
 type Step = "start" | "device" | "working" | "mailbox" | "success" | "error" | "duplicate";
@@ -21,6 +22,7 @@ export function OutlookAdd({ account, settings, autoLogin, onClose }: { account?
   const [failure, setFailure] = useState<OutlookFailure | null>(null);
   const [device, setDevice] = useState<{ userCode: string; expiresIn: number; verificationUri: string } | null>(null);
   const [fixNote, setFixNote] = useState("");
+  const [duplicateLines, setDuplicateLines] = useState<string[]>([]);
 
   const begin = (mode: "pkce" | "device", nextReplaceId = replaceId) => {
     setFailure(null);
@@ -42,7 +44,9 @@ export function OutlookAdd({ account, settings, autoLogin, onClose }: { account?
       setStep("mailbox");
     } else if (event.type === "duplicate") {
       setSavedEmail(event.email);
+      setLoginName(event.loginName || "");
       setAccountId(event.accountId);
+      setDuplicateLines(duplicateOutlookMessage({ email: event.email, loginName: event.loginName }, event.attemptedEmail));
       setStep("duplicate");
     } else if (event.type === "success") {
       setSavedEmail(event.email);
@@ -131,7 +135,7 @@ export function OutlookAdd({ account, settings, autoLogin, onClose }: { account?
       {step === "duplicate" && (
         <>
           <p className="added">该邮箱已添加</p>
-          <p className="hint">{savedEmail}</p>
+          {duplicateLines.map((line) => <p className="hint" key={line}>{line}</p>)}
           <div className="dialog-actions">
             <button className="btn-primary" type="button" onClick={() => { setReplaceId(accountId); begin("pkce", accountId); }}>重新登录</button>
           </div>
@@ -201,7 +205,7 @@ function DeviceCode({ userCode, expiresIn, verificationUri }: { userCode: string
         const target = /^https:\/\//i.test(verificationUri) ? verificationUri : "https://microsoft.com/link";
         void api.copyText(userCode);
         void api.openExternal(target);
-      }}>{/^https:\/\/microsoft\.com\/link/i.test(verificationUri) ? "复制代码并打开 microsoft.com/link" : "复制代码并打开登录页"}</button>
+      }}>{deviceCodeButtonLabel(verificationUri)}</button>
     </div>
   );
 }

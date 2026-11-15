@@ -101,11 +101,17 @@ export function buildAiUserText(input: { subject: string; from: string; text: st
   return `Subject: ${maskForModel(input.subject, input.recipient).slice(0, 300)}\nFrom domain: ${senderDomain(input.from) || "unknown"}\nText:\n${body}`;
 }
 
-export function codeAppearsInOriginal(code: string, original: string): boolean {
+function boundedAlnum(code: string, original: string): boolean {
   const trimmed = code.trim();
   if (!/^[A-Za-z0-9]{4,8}$/.test(trimmed)) return false;
   const pattern = new RegExp(`(?<![A-Za-z0-9])${trimmed}(?![A-Za-z0-9])`);
   return pattern.test(original);
+}
+
+export function codeAppearsInOriginal(code: string, original: string): boolean {
+  const trimmed = code.trim();
+  if (!/\d/.test(trimmed)) return false;
+  return boundedAlnum(trimmed, original);
 }
 
 export function aiNeedsKey(baseUrl: string, preset: string): boolean {
@@ -150,7 +156,7 @@ export function interpretAiContent(raw: string, original: string): AiVerdict | {
 export function mergeRuleAndAi(rule: MailExtract, ai: AiVerdict | null): MailExtract {
   if (!ai?.accepted) return rule;
   if (rule.confidence === "high") return rule;
-  if (ai.kind === "code" && ai.code && ai.confidence !== "low") {
+  if (ai.kind === "code" && ai.code && ai.confidence !== "low" && /\d/.test(ai.code)) {
     const candidate = { code: ai.code, display: ai.code, keyword: "ai", score: 60, source: "body" as const };
     return {
       ...rule,
@@ -175,7 +181,7 @@ export function chatCompletionsUrl(baseUrl: string): string {
 }
 
 export function aiPrompt(): string {
-  return '从邮件里找验证码。只回复一个 JSON 对象，不要加别的文字：{"kind":"code"|"link"|"none","code":"","confidence":"high"|"medium"|"low","reason":""}。kind 为 code 时，code 必须是原文里出现过的那一串。没有验证码就用 none。只有链接验证、没有数字或字母码时用 link，code 留空。';
+  return '从邮件里找验证码。只回复一个 JSON 对象，不要加别的文字：{"kind":"code"|"link"|"none","code":"","confidence":"high"|"medium"|"low","reason":""}。kind 为 code 时，code 必须是原文里出现过的那一串，并且至少包含一位数字。不要把 daily、today 这类普通单词当成验证码。没有验证码就用 none。只有链接验证、没有数字或字母码时用 link，code 留空。';
 }
 
 export interface ChatResult {
@@ -239,7 +245,10 @@ export async function requestAiVerdict(input: {
   }
   const interpreted = interpretAiContent(content, original);
   if ("failure" in interpreted) return { verdict: null, failure: "invalid", detail: "模型没有返回可用 JSON" };
-  if (interpreted.kind === "code" && !interpreted.accepted) return { verdict: interpreted, failure: "invalid", detail: "模型给出的码不在原文里" };
+  if (interpreted.kind === "code" && !interpreted.accepted) {
+    const word = /^[A-Za-z]{4,8}$/.test(interpreted.code) && boundedAlnum(interpreted.code, original);
+    return { verdict: interpreted, failure: "invalid", detail: word ? "模型给出的是普通单词，已改用规则" : "模型给出的码不在原文里" };
+  }
   return { verdict: interpreted };
 }
 

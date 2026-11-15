@@ -158,6 +158,30 @@ export interface OutlookFailure {
   raw: string;
 }
 
+export function duplicateOutlookMessage(existing: { email: string; loginName?: string }, attemptedEmail: string): string[] {
+  const email = existing.email.trim();
+  const login = existing.loginName?.trim() || "";
+  const attempted = attemptedEmail.trim();
+  const known = login && login.toLowerCase() !== email.toLowerCase() ? `${email}（微软账号：${login}）` : email;
+  const lines = [`已有账号：${known}`];
+  if (attempted && attempted.toLowerCase() !== email.toLowerCase()) {
+    lines.push(`这次登录的收信地址是 ${attempted}，和已有账号是同一个微软账号。`);
+  }
+  return lines;
+}
+
+export function deviceCodeButtonLabel(verificationUri: string): string {
+  try {
+    const url = new URL(verificationUri);
+    const host = url.hostname.replace(/^www\./i, "").toLowerCase();
+    const path = url.pathname.replace(/\/+$/, "").toLowerCase();
+    if (url.protocol === "https:" && host === "microsoft.com" && path === "/link") return "复制代码并打开 microsoft.com/link";
+  } catch {
+    return "复制代码并打开登录页";
+  }
+  return "复制代码并打开登录页";
+}
+
 export function mapOutlookFailure(raw: string, context: { stage: "login" | "device" | "imap"; customClient: boolean }): OutlookFailure {
   const text = raw || "";
   if (context.customClient && /redirect_uri|unauthorized_client|invalid_client|AADSTS/i.test(text)) {
