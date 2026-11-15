@@ -6,9 +6,9 @@
 
 ## 安装
 
-发布包是 Windows x64 的 NSIS 安装程序：`MaoDao-Setup-1.0.2-x64.exe`。
+发布包是 Windows x64 的 NSIS 安装程序：`MaoDao-Setup-1.0.3-x64.exe`。
 
-1.0.1 及更早的安装包没有自动更新。需要先手动安装一次 1.0.2，之后才会从 GitHub Releases 检查新版本。
+1.0.1 及更早的安装包没有自动更新。需要先手动安装一次 1.0.2 或更新版本，之后才会从 GitHub Releases 检查新版本。
 
 1. 双击安装包，可以选择安装目录。
 2. 打开「码到」。它会留在系统托盘。
@@ -59,15 +59,15 @@ npm run dist:win
 
 ### Outlook / Hotmail
 
-个人版 Outlook 已经不能用密码登录 IMAP，码到走 OAuth2（XOAUTH2）。需要你自己在 Azure 注册一个免费的公共客户端，码到不内置客户端密钥。
+个人版 Outlook 已经不能用密码登录 IMAP，码到走 OAuth2（XOAUTH2）。设置里的客户端 ID 可以留空：个人 Outlook / Hotmail 会用内置公共客户端，在应用窗口里登录，回调地址是 `https://localhost`。
+
+自己注册应用时才需要填写客户端 ID，并在「自定义回调地址」里写上 Azure 里登记的地址。不填回调时，自己的客户端使用 `http://127.0.0.1:45832/callback`。
 
 1. 打开 [注册应用](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/CreateApplicationBlade/quickStartType~/null/isMSAApp~/true)，或按 [微软文档](https://learn.microsoft.com/zh-cn/entra/identity-platform/quickstart-register-app)。
 2. 支持的账户类型选「任何组织目录中的帐户和个人 Microsoft 帐户」。
-3. 身份验证里允许公共客户端流。平台选「移动和桌面应用程序」，重定向 URI 填 `http://127.0.0.1:45832/callback`。
-4. API 权限添加 Office 365 Exchange Online 的委托权限 `IMAP.AccessAsUser.All`，再加上 `openid`、`email`、`offline_access`。
-5. 把应用程序（客户端）ID 填进码到的设置。不要创建客户端密码。
-6. 添加账号时选 Outlook，用「浏览器登录」或「设备码登录」。
-7. 服务器是 `outlook.office365.com`，端口 `993`。范围是 `https://outlook.office.com/IMAP.AccessAsUser.All`。
+3. 身份验证里允许公共客户端流。重定向 URI 要和码到里填写的一致。
+4. API 权限添加 Office 365 Exchange Online 的委托权限 `IMAP.AccessAsUser.All`，再加上 `openid`、`email`、`offline_access`。不要创建客户端密码。
+5. 添加账号时选 Outlook，用「浏览器登录」。服务器是 `outlook.office365.com`，端口 `993`。
 
 设备码登录打开 https://microsoft.com/devicelogin ，输入码到显示的代码。
 

@@ -86,9 +86,9 @@ export const PROVIDERS: Record<ProviderId, ProviderPreset> = {
     authMethod: "oauth",
     guideTitle: "Outlook 个人账号走登录，不走授权码",
     steps: [
-      "在 Azure 免费注册应用，账户类型包含个人 Microsoft 账号。",
-      "重定向地址填 http://127.0.0.1:45832/callback，并允许公共客户端流。",
-      "权限加上 IMAP.AccessAsUser.All、offline_access、openid、email，把客户端 ID 填进设置。",
+      "设置里的客户端 ID 可以留空。个人 Outlook / Hotmail 会用内置客户端，在窗口里登录。",
+      "自己注册 Azure 应用时才填写客户端 ID，并写上注册过的回调地址。",
+      "默认回调：内置客户端是 https://localhost，自己的客户端是 http://127.0.0.1:45832/callback。",
     ],
     link: "https://learn.microsoft.com/zh-cn/entra/identity-platform/quickstart-register-app",
     linkText: "如何注册 Azure 应用",

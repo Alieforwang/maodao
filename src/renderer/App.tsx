@@ -220,10 +220,15 @@ function Settings({ state }: { state: AppState }) {
         <div className="group">
           <div className="set-row">
             <div style={{ flex: 1 }}>
-              <h3>Azure 客户端 ID</h3>
-              <p>个人 Outlook 要用你自己注册的免费应用。客户端 ID 不是密钥，可以保存在本机。</p>
+              <h3>Azure 客户端 ID（可选）</h3>
+              <p>留空即可登录个人 Outlook / Hotmail。只有你自己在 Azure 注册了应用时才需要填写。</p>
               <div className="field" style={{ marginTop: 8 }}>
-                <input value={settings.outlookClientId} placeholder="应用程序(客户端) ID" onChange={(event) => set({ outlookClientId: event.target.value.trim() })} />
+                <input value={settings.outlookClientId} placeholder="留空使用内置客户端" onChange={(event) => set({ outlookClientId: event.target.value.trim() })} />
+              </div>
+              <h3 style={{ marginTop: 12 }}>自定义回调地址（可选）</h3>
+              <p>留空时，内置客户端使用 https://localhost，自己的客户端使用 http://127.0.0.1:45832/callback。</p>
+              <div className="field" style={{ marginTop: 8 }}>
+                <input value={settings.oauthRedirectUri} placeholder="例如 https://localhost" onChange={(event) => set({ oauthRedirectUri: event.target.value.trim() })} />
               </div>
             </div>
           </div>

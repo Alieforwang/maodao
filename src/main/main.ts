@@ -11,6 +11,7 @@ import { isCopyReason, type AccountStatus, type AppState, type HistoryItem, type
 import { logInfo } from "./log.js";
 import { runHarness } from "./harness.js";
 import { AppUpdater } from "./updater.js";
+import { openEmbeddedOutlookLogin } from "./outlookWindow.js";
 import { INITIAL_UPDATE_STATUS } from "../shared/updates.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -355,7 +356,7 @@ function wireIpc(): void {
     try {
       const tokens = mode === "device"
         ? await login.device(store.settings, send)
-        : await login.pkce(store.settings, (url) => void shell.openExternal(url), send);
+        : await login.pkce(store.settings, (url) => void shell.openExternal(url), send, openEmbeddedOutlookLogin);
       if (!tokens.email) throw new Error("登录成功，但没有拿到邮箱地址。");
       const account = store.saveOAuthAccount({
         email: tokens.email || "",

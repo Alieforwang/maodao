@@ -1,6 +1,15 @@
 import { createHash, randomBytes } from "node:crypto";
 import http from "node:http";
 import type { Settings } from "../shared/types.js";
+import {
+  buildAuthorizationCodeRequest,
+  buildAuthorizeUrl,
+  buildRefreshRequest,
+  loopbackListenTarget,
+  parseOAuthCallback,
+  resolveOutlookAuth,
+  type OutlookAuthConfig,
+} from "../shared/outlookAuth.js";
 
 export const OUTLOOK_SCOPES = [
   "openid",
@@ -43,11 +52,6 @@ export function readJwtEmail(idToken: string | undefined): string | undefined {
   }
 }
 
-function endpoint(settings: Settings, kind: "authorize" | "token" | "devicecode"): string {
-  const tenant = settings.outlookTenant || "consumers";
-  return `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/${kind}`;
-}
-
 async function postForm(url: string, body: URLSearchParams): Promise<Record<string, unknown>> {
   const response = await fetch(url, {
     method: "POST",
@@ -73,38 +77,86 @@ function tokensFromJson(json: Record<string, unknown>): OAuthTokens {
 }
 
 export async function refreshOutlookToken(settings: Settings, refreshToken: string): Promise<OAuthTokens> {
-  const json = await postForm(
-    endpoint(settings, "token"),
-    new URLSearchParams({
-      client_id: settings.outlookClientId,
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      scope: OUTLOOK_SCOPES,
-    }),
-  );
+  const config = resolveOutlookAuth(settings);
+  const json = await postForm(endpointFor(config, "token"), buildRefreshRequest({
+    clientId: config.clientId,
+    redirectUri: config.redirectUri,
+    refreshToken,
+    scope: OUTLOOK_SCOPES,
+  }));
   return tokensFromJson(json);
+}
+
+function endpointFor(config: OutlookAuthConfig, kind: "authorize" | "token" | "devicecode"): string {
+  return `https://login.microsoftonline.com/${config.tenant}/oauth2/v2.0/${kind}`;
 }
 
 export class OutlookLogin {
   private cancelled = false;
   private server: http.Server | undefined;
+  private cancelEmbedded: (() => void) | undefined;
 
   cancel(): void {
     this.cancelled = true;
     this.server?.close();
+    this.cancelEmbedded?.();
   }
 
-  async pkce(settings: Settings, open: (url: string) => void, onEvent: (event: OAuthEvent) => void): Promise<OAuthTokens> {
-    this.requireClient(settings);
+  async pkce(
+    settings: Settings,
+    openExternal: (url: string) => void,
+    onEvent: (event: OAuthEvent) => void,
+    openEmbedded?: (authorizeUrl: string, redirectUri: string) => { result: Promise<string>; close: () => void },
+  ): Promise<OAuthTokens> {
+    const config = resolveOutlookAuth(settings);
     const verifier = base64url(randomBytes(32));
     const challenge = base64url(createHash("sha256").update(verifier).digest());
     const state = base64url(randomBytes(16));
-    const port = settings.oauthRedirectPort || 45832;
-    const redirectUri = `http://127.0.0.1:${port}/callback`;
-    const code = await new Promise<string>((resolve, reject) => {
+    const authorizeUrl = buildAuthorizeUrl({
+      tenant: config.tenant,
+      clientId: config.clientId,
+      redirectUri: config.redirectUri,
+      challenge,
+      state,
+      scope: OUTLOOK_SCOPES,
+    });
+    onEvent({ type: "progress", message: config.mode === "embedded" ? "正在打开登录窗口…" : "正在等待浏览器登录…" });
+    const callbackUrl = config.mode === "embedded"
+      ? await this.embeddedCallback(authorizeUrl, config.redirectUri, openEmbedded)
+      : await this.loopbackCallback(config.redirectUri, state, () => openExternal(authorizeUrl));
+    const parsed = parseOAuthCallback(callbackUrl, config.redirectUri);
+    if (!parsed) throw new Error("没有收到登录回调。");
+    if (parsed.error) throw new Error(parsed.error);
+    if (!parsed.code || parsed.state !== state) throw new Error("登录回调无效。");
+    const json = await postForm(endpointFor(config, "token"), buildAuthorizationCodeRequest({
+      clientId: config.clientId,
+      redirectUri: config.redirectUri,
+      code: parsed.code,
+      verifier,
+      scope: OUTLOOK_SCOPES,
+    }));
+    const tokens = tokensFromJson(json);
+    if (!tokens.email) throw new Error("登录成功，但没有拿到邮箱地址。");
+    return tokens;
+  }
+
+  private embeddedCallback(
+    authorizeUrl: string,
+    redirectUri: string,
+    openEmbedded: ((authorizeUrl: string, redirectUri: string) => { result: Promise<string>; close: () => void }) | undefined,
+  ): Promise<string> {
+    if (!openEmbedded) throw new Error("当前环境不能打开登录窗口。");
+    const opened = openEmbedded(authorizeUrl, redirectUri);
+    this.cancelEmbedded = opened.close;
+    return opened.result;
+  }
+
+  private loopbackCallback(redirectUri: string, state: string, open: () => void): Promise<string> {
+    const target = loopbackListenTarget(redirectUri);
+    return new Promise((resolve, reject) => {
       const server = http.createServer((request, response) => {
-        const url = new URL(request.url || "/", `http://127.0.0.1:${port}`);
-        if (url.pathname !== "/callback") {
+        const url = new URL(request.url || "/", `http://${target.host}:${target.port}`);
+        if (url.pathname !== target.path) {
           response.statusCode = 404;
           response.end();
           return;
@@ -113,53 +165,22 @@ export class OutlookLogin {
         response.end("<!doctype html><meta charset='utf-8'><title>码到</title><p style='font-family:sans-serif'>可以关闭这个页面，回到码到。</p>");
         server.close();
         const error = url.searchParams.get("error_description") || url.searchParams.get("error");
-        const authCode = url.searchParams.get("code");
+        const code = url.searchParams.get("code");
         if (error) reject(new Error(error));
-        else if (!authCode || url.searchParams.get("state") !== state) reject(new Error("登录回调无效。"));
-        else resolve(authCode);
+        else if (!code || url.searchParams.get("state") !== state) reject(new Error("登录回调无效。"));
+        else resolve(url.toString());
       });
       this.server = server;
       server.once("error", reject);
-      server.listen(port, "127.0.0.1", () => {
-        onEvent({ type: "progress", message: "正在等待浏览器登录…" });
-        open(this.authorizationUrl(settings, challenge, state));
-      });
+      server.listen(target.port, target.host, () => open());
     });
-    const json = await postForm(
-      endpoint(settings, "token"),
-      new URLSearchParams({
-        client_id: settings.outlookClientId,
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: redirectUri,
-        code_verifier: verifier,
-        scope: OUTLOOK_SCOPES,
-      }),
-    );
-    const tokens = tokensFromJson(json);
-    if (!tokens.email) throw new Error("登录成功，但没有拿到邮箱地址。");
-    return tokens;
-  }
-
-  authorizationUrl(settings: Settings, challenge: string, state: string): string {
-    const port = settings.oauthRedirectPort || 45832;
-    const url = new URL(endpoint(settings, "authorize"));
-    url.searchParams.set("client_id", settings.outlookClientId);
-    url.searchParams.set("response_type", "code");
-    url.searchParams.set("redirect_uri", `http://127.0.0.1:${port}/callback`);
-    url.searchParams.set("scope", OUTLOOK_SCOPES);
-    url.searchParams.set("code_challenge", challenge);
-    url.searchParams.set("code_challenge_method", "S256");
-    url.searchParams.set("state", state);
-    url.searchParams.set("prompt", "select_account");
-    return url.toString();
   }
 
   async device(settings: Settings, onEvent: (event: OAuthEvent) => void): Promise<OAuthTokens> {
-    this.requireClient(settings);
+    const config = resolveOutlookAuth(settings);
     const started = await postForm(
-      endpoint(settings, "devicecode"),
-      new URLSearchParams({ client_id: settings.outlookClientId, scope: OUTLOOK_SCOPES }),
+      endpointFor(config, "devicecode"),
+      new URLSearchParams({ client_id: config.clientId, scope: OUTLOOK_SCOPES }),
     );
     const deviceCode = String(started.device_code || "");
     const interval = Math.max(5, Number(started.interval || 5));
@@ -173,12 +194,12 @@ export class OutlookLogin {
     let wait = interval;
     while (!this.cancelled && Date.now() < deadline) {
       await delay(wait * 1000);
-      const response = await fetch(endpoint(settings, "token"), {
+      const response = await fetch(endpointFor(config, "token"), {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-          client_id: settings.outlookClientId,
+          client_id: config.clientId,
           device_code: deviceCode,
         }),
       });
@@ -195,12 +216,7 @@ export class OutlookLogin {
     throw new Error(this.cancelled ? "已取消登录。" : "设备码已过期。");
   }
 
-  private requireClient(settings: Settings): void {
-    if (!settings.outlookClientId.trim()) {
-      throw new Error("先在设置里填写 Outlook 的 Azure 客户端 ID。");
-    }
   }
-}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

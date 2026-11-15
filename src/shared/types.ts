@@ -27,6 +27,8 @@ export interface Settings {
   outlookClientId: string;
   outlookTenant: string;
   oauthRedirectPort: number;
+  /** Empty means choose https://localhost or the loopback URL from the client id. */
+  oauthRedirectUri: string;
   /** 启动后以及每 6 小时检查 GitHub Releases。 */
   autoCheckUpdates: boolean;
 }
@@ -121,6 +123,7 @@ export const DEFAULT_SETTINGS: Settings = {
   outlookClientId: "",
   outlookTenant: "consumers",
   oauthRedirectPort: 45832,
+  oauthRedirectUri: "",
   autoCheckUpdates: true,
 };
 
