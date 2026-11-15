@@ -44,10 +44,6 @@ const api = {
     };
   },
   dismissToast: () => ipcRenderer.invoke("toast-dismiss"),
-  muteToastSender: () => ipcRenderer.invoke("toast-mute"),
-  chooseOtherCode: () => ipcRenderer.invoke("toast-other"),
-  openVerifyLink: () => ipcRenderer.invoke("toast-open-link"),
-  exportRedactedSample: () => ipcRenderer.invoke("toast-export"),
 };
 
 contextBridge.exposeInMainWorld("madao", api);

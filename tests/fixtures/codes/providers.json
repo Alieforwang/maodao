@@ -1,0 +1,200 @@
+[
+  {
+    "id": "qq-1",
+    "lang": "zh-Hans",
+    "from": "QQ邮箱 <10000@qq.com>",
+    "subject": "QQ 邮箱验证",
+    "text": "您正在登录 QQ 邮箱，验证码见下方。 582916",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">QQ 邮箱验证</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">您正在登录 QQ 邮箱，验证码见下方。</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">582916</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "582916",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "qq-2",
+    "lang": "zh-Hans",
+    "from": "QQ邮箱 <10000@qq.com>",
+    "subject": "QQ 安全验证",
+    "text": "请输入验证码完成 QQ 登录。 193847",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">QQ 安全验证</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">请输入验证码完成 QQ 登录。</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">193847</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "193847",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "netease-1",
+    "lang": "zh-Hans",
+    "from": "网易邮箱 <noreply@163.com>",
+    "subject": "网易邮箱验证码",
+    "text": "您好，您的验证码为下方数字，用于登录。 102938",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">网易邮箱验证码</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">您好，您的验证码为下方数字，用于登录。</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">102938</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "102938",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "netease-2",
+    "lang": "zh-Hans",
+    "from": "网易邮箱 <noreply@126.com>",
+    "subject": "126 校验码",
+    "text": "校验码见下表，请在 10 分钟内输入。 884422",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">126 校验码</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">校验码见下表，请在 10 分钟内输入。</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">884422</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "884422",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "alipay-1",
+    "lang": "zh-Hans",
+    "from": "支付宝 <notify@service.alipay.com>",
+    "subject": "支付宝验证码",
+    "text": "您正在登录支付宝。验证码如下，请勿告诉他人。 738291",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">支付宝验证码</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">您正在登录支付宝。验证码如下，请勿告诉他人。</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">738291</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "738291",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "alipay-2",
+    "lang": "zh-Hans",
+    "from": "支付宝 <notify@service.alipay.com>",
+    "subject": "支付宝安全校验",
+    "text": "校验码用于本次登录。 445566",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">支付宝安全校验</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">校验码用于本次登录。</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">445566</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "445566",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "wechat-1",
+    "lang": "zh-Hans",
+    "from": "微信团队 <weixin@tencent.com>",
+    "subject": "微信登录验证",
+    "text": "您正在登录微信，验证码 10 分钟内有效。 219384",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">微信登录验证</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">您正在登录微信，验证码 10 分钟内有效。</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">219384</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "219384",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "wechat-2",
+    "lang": "zh-Hans",
+    "from": "微信团队 <weixin@tencent.com>",
+    "subject": "微信安全码",
+    "text": "请填写下面的验证码。 654321",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">微信安全码</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">请填写下面的验证码。</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">654321</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "654321",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "google-1",
+    "lang": "en",
+    "from": "Google <noreply@accounts.google.com>",
+    "subject": "Google verification code",
+    "text": "Your Google verification code is below. 847291",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">Google verification code</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">Your Google verification code is below.</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">847291</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "847291",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "google-2",
+    "lang": "en",
+    "from": "Google <noreply@accounts.google.com>",
+    "subject": "Sign in to Google",
+    "text": "Use this verification code to continue. 918273",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">Sign in to Google</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">Use this verification code to continue.</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">918273</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "918273",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "microsoft-1",
+    "lang": "en",
+    "from": "Microsoft account team <account-security-noreply@accountprotection.microsoft.com>",
+    "subject": "Microsoft security code",
+    "text": "Your Microsoft account security code is below. 661203",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">Microsoft security code</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">Your Microsoft account security code is below.</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">661203</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "661203",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "microsoft-2",
+    "lang": "en",
+    "from": "Microsoft <noreply@accountprotection.microsoft.com>",
+    "subject": "Finish signing in",
+    "text": "Enter the security code below to finish signing in. 305571",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">Finish signing in</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">Enter the security code below to finish signing in.</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">305571</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "305571",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "apple-1",
+    "lang": "en",
+    "from": "Apple <noreply@email.apple.com>",
+    "subject": "Your Apple ID code",
+    "text": "Your Apple ID code is below. Don't share it. 774410",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">Your Apple ID code</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">Your Apple ID code is below. Don't share it.</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">774410</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "774410",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "apple-2",
+    "lang": "en",
+    "from": "Apple <noreply@id.apple.com>",
+    "subject": "Apple ID",
+    "text": "Use this Apple ID code to verify it's you. 229015",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">Apple ID</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">Use this Apple ID code to verify it's you.</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">229015</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "229015",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "steam-1",
+    "lang": "en",
+    "from": "Steam Support <noreply@steampowered.com>",
+    "subject": "Steam Guard",
+    "text": "Here is the Steam Guard code you need to login. R7K2M",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">Steam Guard</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">Here is the Steam Guard code you need to login.</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">R7K2M</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "R7K2M",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "steam-2",
+    "lang": "en",
+    "from": "Steam <noreply@steampowered.com>",
+    "subject": "Steam Guard code",
+    "text": "Steam Guard code for this login: K4M9Q",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">Steam Guard code</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">Steam Guard code for this login:</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">K4M9Q</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "K4M9Q",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "github-1",
+    "lang": "en",
+    "from": "GitHub <noreply@github.com>",
+    "subject": "GitHub verification code",
+    "text": "Your GitHub authentication code is below. 582916",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">GitHub verification code</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">Your GitHub authentication code is below.</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">582916</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "582916",
+    "kind": "code",
+    "note": "provider HTML template"
+  },
+  {
+    "id": "github-2",
+    "lang": "en",
+    "from": "GitHub <noreply@github.com>",
+    "subject": "GitHub sign-in",
+    "text": "Use this verification code to finish signing in to GitHub. 193847",
+    "html": "<!DOCTYPE html><html><body style=\"margin:0;background:#f3f3f3\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\"><table width=\"560\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;font-family:Segoe UI,sans-serif\"><tr><td style=\"padding:28px 32px 8px;font-size:20px;font-weight:700\">GitHub sign-in</td></tr><tr><td style=\"padding:8px 32px 16px;font-size:15px;line-height:1.5;color:#333\">Use this verification code to finish signing in to GitHub.</td></tr><tr><td align=\"center\" style=\"padding:8px 32px 24px\"><table><tr><td style=\"font-size:32px;font-weight:700;letter-spacing:4px;padding:12px 24px;background:#f7f7f7\">193847</td></tr></table></td></tr><tr><td style=\"padding:0 32px 28px;font-size:12px;color:#777\">如果这不是你的操作，可以忽略这封邮件。</td></tr></table></td></tr></table></body></html>",
+    "expected": "193847",
+    "kind": "code",
+    "note": "provider HTML template"
+  }
+]

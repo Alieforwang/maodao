@@ -239,21 +239,6 @@ html[data-scene="tray"] .tray-app,
   font-size: 11px;
   color: var(--text-3);
 }
-.maybe { font-size: 18px; font-weight: 650; }
-.link-title { font-size: 22px; line-height: 1.35; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.chips button {
-  border: 1px solid var(--stroke-strong);
-  background: transparent;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 16px;
-  font-weight: 650;
-}
-.chips button.on { border-color: var(--accent); color: var(--accent); }
-.toast-extra { position: relative; z-index: 1; display: flex; gap: 12px; padding: 8px 16px 0; }
-.toast-extra button { border: 0; background: transparent; padding: 0; color: var(--text-2); font-size: 12px; }
-.toast-extra button:hover { color: var(--text); }
 
 .scene-toast .flyout { display: none; }
 .flyout {

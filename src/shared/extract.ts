@@ -1,4 +1,5 @@
 import { htmlToText } from "./decode.js";
+import { senderTemplate } from "./service.js";
 
 export type Confidence = "high" | "medium" | "low";
 
@@ -6,7 +7,10 @@ export interface CodeHit {
   code: string;
   keyword: string;
   display?: string;
-  confidence?: Confidence;
+  confidence: Confidence;
+  candidates: Candidate[];
+  kind: "code" | "link" | "none";
+  link?: string;
 }
 
 export interface Candidate {
@@ -23,7 +27,7 @@ export interface MailExtract {
   keyword: string | null;
   confidence: Confidence;
   candidates: Candidate[];
-  kind: "code" | "maybe" | "link" | "none";
+  kind: "code" | "link" | "none";
   verifyUrl: string | null;
 }
 
@@ -41,21 +45,20 @@ interface RawCode {
   end: number;
 }
 
-const STRONG = [
-  "验证码", "校验码", "动态密码", "动态码", "一次性密码", "确认码", "认证码", "安全码", "登录码",
-  "驗證碼", "校驗碼", "動態密碼", "動態碼", "一次性密碼", "確認碼", "認證碼", "安全碼", "登入碼",
-  "認証コード", "確認コード", "認証番号", "ワンタイムパスワード", "確認番号",
-  "인증번호", "인증 번호", "인증코드", "확인코드",
-  "código de verificación", "codigo de verificacion", "código de seguridad", "codigo de seguridad",
-  "bestätigungscode", "sicherheitscode", "verifizierungscode",
-  "code de vérification", "code de verification", "code de validation", "code de confirmation",
-  "код подтверждения", "проверочный код", "одноразовый код", "код безопасности",
-  "código de verificação", "codigo de verificacao", "código de segurança",
-  "verification code", "security code", "authentication code", "one-time password", "one time password",
-  "one-time code", "one time code", "login code", "sign-in code", "signin code", "steam guard",
-  "passcode", "otp", "enter this code", "enter the code", "enter code",
-  "ihr code", "votre code", "tu código", "su código", "seu código", "ваш код",
-];
+export const KEYWORD_GROUPS = {
+  "zh-Hans": ["验证码", "校验码", "动态密码", "动态码", "一次性密码", "确认码", "认证码", "安全码", "登录码"],
+  "zh-Hant": ["驗證碼", "校驗碼", "動態密碼", "動態碼", "一次性密碼", "確認碼", "認證碼", "安全碼", "登入碼"],
+  ja: ["認証コード", "確認コード", "認証番号", "ワンタイムパスワード", "確認番号"],
+  ko: ["인증번호", "인증 코드", "인증코드", "확인 코드", "확인코드"],
+  es: ["código de verificación", "codigo de verificacion", "código de seguridad", "codigo de seguridad", "tu código", "su código"],
+  pt: ["código de verificação", "codigo de verificacao", "código de segurança", "seu código"],
+  de: ["bestätigungscode", "sicherheitscode", "verifizierungscode", "ihr code"],
+  fr: ["code de vérification", "code de verification", "code de validation", "code de confirmation", "votre code"],
+  ru: ["код подтверждения", "проверочный код", "одноразовый код", "код безопасности", "ваш код"],
+  en: ["verification code", "security code", "authentication code", "one-time password", "one time password", "one-time code", "one time code", "login code", "sign-in code", "signin code", "steam guard", "passcode", "otp", "enter this code", "enter the code", "enter the following code", "enter code", "use the following code", "type this code", "type the code", "type the following code", "is your code"],
+};
+
+const STRONG = Object.values(KEYWORD_GROUPS).flat();
 
 const CONDITIONAL = ["your code", "use code", "use this code", "the code", "code is", "code:", "code：", "code"];
 
@@ -65,8 +68,8 @@ const NEGATIVE = [
   "case number", "case id", "order number", "order id", "order #", "tracking number", "tracking id",
   "tracking", "invoice", "version", "zip code", "area code", "error code", "status code",
   "postal code", "country code", "bar code", "barcode", "source code", "discount code", "gift code",
-  "voucher", "sku", "优惠码", "优惠券", "邀请码", "推荐码", "兑换码", "激活码", "不是验证码", "无需验证码", "不需要验证码", "工单号", "工单",
-  "尾号", "版本", "订单号", "订单", "单号", "运单", "快递单号", "快递", "参考号", "参考编号", "參考編號",
+  "voucher", "sku", "discount code", "discount", "ref:", "ref no", "ref number", "优惠码", "优惠券", "邀请码", "推荐码", "兑换码", "激活码", "不是验证码", "无需验证码", "不需要验证码", "工单号", "工单",
+  "尾号", "版本", "型号", "订单号", "订单", "单号", "运单", "快递单号", "快递", "参考号", "参考编号", "參考編號",
   "票号", "票號", "序列号", "手机号", "手机", "电话", "客服", "金额",
 ];
 
@@ -81,24 +84,45 @@ export function normalizeMailText(input: string): string {
 export function extractVerificationCode(input: string): CodeHit | null {
   const result = extractFromMail({ subject: "", body: input });
   if (!result.code || result.confidence === "low") return null;
-  return { code: result.code, keyword: result.keyword || "", display: result.display || result.code, confidence: result.confidence };
+  return {
+    code: result.code,
+    keyword: result.keyword || "",
+    display: result.display || result.code,
+    confidence: result.confidence,
+    candidates: result.candidates.slice(0, 3),
+    kind: "code",
+    link: result.verifyUrl || undefined,
+  };
 }
 
-export function extractFromMail(input: { subject?: string; body?: string }): MailExtract {
+export function extractFromMail(input: { subject?: string; body?: string; html?: string; from?: string }): MailExtract {
   const subject = prepare(input.subject || "");
+  const htmlPrepared = input.html ? prepare(input.html) : null;
   const body = prepare(input.body || "");
-  const subjectHasStrong = hasStrong(subject.text);
-  const subjectCodes = scorePart(subject.text, subject.emphasis, "subject", false);
-  const bodyCodes = scorePart(body.text, body.emphasis, "body", subjectHasStrong);
-  const merged = dedupe([...subjectCodes, ...bodyCodes]).sort((a, b) => b.score - a.score);
+  const subjectHasStrong = hasStrong(subject.text) || (htmlPrepared ? hasStrong(htmlPrepared.text) : false) || hasStrong(body.text);
+  const template = senderTemplate(input.from || "");
+  const parts = [
+    ...scorePart(subject.text, subject.emphasis, "subject", false, template),
+  ];
+  if (htmlPrepared) {
+    parts.push(...scorePart(htmlPrepared.text, htmlPrepared.emphasis, "body", subjectHasStrong, template));
+    const htmlNorm = squash(htmlPrepared.text);
+    const bodyNorm = squash(body.text);
+    if (bodyNorm && htmlNorm && !htmlNorm.includes(bodyNorm) && !bodyNorm.includes(htmlNorm)) {
+      parts.push(...scorePart(body.text, body.emphasis, "body", subjectHasStrong, template));
+    }
+  } else {
+    parts.push(...scorePart(body.text, body.emphasis, "body", subjectHasStrong, template));
+  }
+  const merged = dedupe(parts).sort((a, b) => b.score - a.score);
   const visible = merged.filter((item) => item.score >= 48);
   const best = visible[0];
   const second = visible[1];
   let confidence: Confidence = "low";
   if (best && best.score >= 64 && (!second || best.score - second.score >= 10)) confidence = "high";
   else if (best) confidence = "medium";
-  const links = unique([...subject.links, ...body.links]).filter(isActionableLink);
-  const linkText = `${subject.text}\n${body.text}`;
+  const links = unique([...subject.links, ...body.links, ...(htmlPrepared?.links || [])]).filter(isActionableLink);
+  const linkText = `${subject.text}\n${htmlPrepared?.text || ""}\n${body.text}`;
   const verifyUrl = LINK_PHRASE.test(linkText) ? links[0] || null : null;
   if (best && confidence !== "low") {
     const top = visible.slice(0, 3);
@@ -108,8 +132,8 @@ export function extractFromMail(input: { subject?: string; body?: string }): Mai
       keyword: best.keyword,
       confidence,
       candidates: top,
-      kind: confidence === "high" ? "code" : "maybe",
-      verifyUrl: confidence === "high" ? null : verifyUrl,
+      kind: "code",
+      verifyUrl,
     };
   }
   if (verifyUrl) {
@@ -155,15 +179,14 @@ function prepare(input: string): { text: string; links: string[]; emphasis: Set<
   return { text, links, emphasis };
 }
 
-function scorePart(text: string, emphasis: Set<string>, source: "subject" | "body", subjectStrong: boolean): Candidate[] {
+function scorePart(text: string, emphasis: Set<string>, source: "subject" | "body", subjectStrong: boolean, template?: { length?: number }): Candidate[] {
   const codes = findCodes(text);
-  const labels = findLabels(text);
   const lines = new Set(text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
   const found: Candidate[] = [];
   for (const raw of codes) {
+    const labels = labelsAround(text, raw);
     if (STOP.has(raw.code.toLowerCase())) continue;
-    if (!/\d/.test(raw.code) && (raw.code.match(/[A-Z]/g) || []).length < 2) continue;
-    if (!/\d/.test(raw.code) && !labels.some((label) => label.kind === "strong" && label.end <= raw.start && raw.start - label.end <= 8)) continue;
+    if (!letterAllowed(raw, labels)) continue;
     if (isYear(raw, text) || isPrice(raw, text) || insidePhone(raw, text)) continue;
     const label = labelFor(raw, labels, codes, text);
     const ownLine = lines.has(raw.display) || lines.has(raw.code);
@@ -194,6 +217,7 @@ function scorePart(text: string, emphasis: Set<string>, source: "subject" | "bod
     if (emphasized && label?.kind !== "negative") score += 16;
     if (label?.kind !== "negative" && /to verify|to sign in|to log in|完成验证|用于登录|请输入|输入此/i.test(text.slice(raw.end, raw.end + 24))) score += 12;
     if (subjectStrong && source === "body" && label?.kind !== "negative" && score >= 40) score += 8;
+    if (template?.length && template.length === raw.code.length && label?.kind !== "negative" && score >= 40) score += 8;
     if (score < 48) continue;
     found.push({ code: raw.code, display: raw.display, keyword, score, source });
   }
@@ -209,7 +233,7 @@ function findCodes(text: string): RawCode[] {
     taken.push([start, end]);
     found.push({ display, code, start, end });
   };
-  const grouped = /(?<![A-Za-z0-9])(\d{3})([- ])(\d{3})(?![A-Za-z0-9])|(?<![A-Za-z0-9])(\d{2})([-])(\d{2})([-])(\d{2})(?![A-Za-z0-9])|(?<![A-Za-z0-9])([A-Za-z]{3,5})( )(\d{3})(?![A-Za-z0-9])/g;
+  const grouped = /(?<![A-Za-z0-9])(\d{3})([- ])(\d{3})(?![A-Za-z0-9])|(?<![A-Za-z0-9])(\d{2})([-])(\d{2})([-])(\d{2})(?![A-Za-z0-9])|(?<![A-Za-z0-9])([A-Za-z]{3,5})([- ])(\d{3})(?![A-Za-z0-9])/g;
   for (const match of text.matchAll(grouped)) {
     const display = match[0];
     push(display, display.replace(/[- ]/g, ""), match.index || 0, (match.index || 0) + display.length);
@@ -224,6 +248,12 @@ function findCodes(text: string): RawCode[] {
     push(match[1], match[1], match.index || 0, (match.index || 0) + match[1].length);
   }
   return found;
+}
+
+function labelsAround(text: string, code: RawCode): Label[] {
+  const from = Math.max(0, code.start - 64);
+  const to = Math.min(text.length, code.end + 64);
+  return findLabels(text.slice(from, to)).map((label) => ({ ...label, start: label.start + from, end: label.end + from }));
 }
 
 function findLabels(text: string): Label[] {
@@ -324,6 +354,7 @@ function collectEmphasis(input: string): Set<string> {
   const chunks = [
     ...input.matchAll(/<(b|strong|h1|h2)\b[^>]*>([\s\S]*?)<\/\1>/gi),
     ...input.matchAll(/<[^>]+style\s*=\s*["'][^"']*font-size\s*:\s*(?:2[0-9]|[3-9]\d)px[^"']*["'][^>]*>([\s\S]*?)<\/[a-z0-9]+>/gi),
+    ...input.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi),
   ];
   for (const match of chunks) {
     const inner = htmlToText(match[2] || match[1] || "").trim();
@@ -349,6 +380,16 @@ function dedupe(items: Candidate[]): Candidate[] {
     if (!prev || item.score > prev.score) map.set(key, item);
   }
   return [...map.values()];
+}
+
+function letterAllowed(raw: RawCode, labels: Label[]): boolean {
+  if (/\d/.test(raw.code)) return true;
+  if ((raw.code.match(/[A-Z]/g) || []).length < 2) return false;
+  return labels.some((label) => label.kind === "strong" && gap(label, raw) <= 12);
+}
+
+function squash(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function unique(values: string[]): string[] {

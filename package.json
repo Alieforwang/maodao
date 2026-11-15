@@ -12,6 +12,7 @@
     "start": "electron .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "eval:codes": "vitest run tests/eval-codes.test.ts",
     "e2e": "node scripts/build.mjs && node scripts/e2e.mjs",
     "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never --config electron-builder.yml"
   },

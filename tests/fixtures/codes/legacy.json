@@ -1,0 +1,292 @@
+[
+  {
+    "id": "legacy-qq",
+    "lang": "zh-Hans",
+    "from": "QQ邮箱 <10000@qq.com>",
+    "subject": "邮箱验证",
+    "text": "QQ：您正在进行邮箱验证，验证码：582916，有效期 5 分钟。",
+    "expected": "582916",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-netease",
+    "lang": "zh-Hans",
+    "from": "网易 <noreply@163.com>",
+    "subject": "验证码",
+    "text": "网易：您好，您的验证码为 193847，用于登录。",
+    "expected": "193847",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-126",
+    "lang": "zh-Hans",
+    "from": "126 <noreply@126.com>",
+    "subject": "校验码",
+    "text": "126：校验码是 102938。",
+    "expected": "102938",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-alipay",
+    "lang": "zh-Hans",
+    "from": "支付宝 <notify@alipay.com>",
+    "subject": "支付宝",
+    "text": "【支付宝】您的验证码是738291，打死都不要告诉别人哦！",
+    "expected": "738291",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-wechat",
+    "lang": "zh-Hans",
+    "from": "微信 <weixin@tencent.com>",
+    "subject": "微信",
+    "text": "【微信】验证码102938（10分钟内有效）。您正在登录微信。",
+    "expected": "102938",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-dynamic",
+    "lang": "zh-Hans",
+    "from": "安全 <secure@example.com>",
+    "subject": "动态密码",
+    "text": "动态密码：884422",
+    "expected": "884422",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-otp-zh",
+    "lang": "zh-Hans",
+    "from": "安全 <secure@example.com>",
+    "subject": "一次性密码",
+    "text": "一次性密码 445566，请及时输入。",
+    "expected": "445566",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-after",
+    "lang": "zh-Hans",
+    "from": "安全 <secure@example.com>",
+    "subject": "验证码",
+    "text": "123456 是您的验证码",
+    "expected": "123456",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-google",
+    "lang": "en",
+    "from": "Google <noreply@google.com>",
+    "subject": "Google",
+    "text": "Your Google verification code is 847291",
+    "expected": "847291",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-g",
+    "lang": "en",
+    "from": "Google <noreply@google.com>",
+    "subject": "Google",
+    "text": "G-482913 is your Google verification code.",
+    "expected": "482913",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-ms",
+    "lang": "en",
+    "from": "Microsoft <noreply@microsoft.com>",
+    "subject": "Microsoft",
+    "text": "Microsoft account security code: 918273",
+    "expected": "918273",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-own",
+    "lang": "en",
+    "from": "Microsoft <noreply@microsoft.com>",
+    "subject": "Sign in",
+    "text": "The verification code to continue signing in is:\n\n219384\n\nThis code will expire soon.",
+    "expected": "219384",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-apple",
+    "lang": "en",
+    "from": "Apple <noreply@apple.com>",
+    "subject": "Apple ID",
+    "text": "Your Apple ID Code is: 654321. Don't share it with anyone.",
+    "expected": "654321",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-steam",
+    "lang": "en",
+    "from": "Steam <noreply@steampowered.com>",
+    "subject": "Steam Guard",
+    "text": "Here's the Steam Guard code you need to login: R7K2M",
+    "expected": "R7K2M",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-otp",
+    "lang": "en",
+    "from": "Auth <noreply@example.com>",
+    "subject": "OTP",
+    "text": "Your OTP is 445566. It expires in 5 minutes.",
+    "expected": "445566",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-onetime",
+    "lang": "en",
+    "from": "Auth <noreply@example.com>",
+    "subject": "One-time password",
+    "text": "One-time password: AB12CD",
+    "expected": "AB12CD",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-year",
+    "lang": "zh-Hans",
+    "from": "安全 <secure@example.com>",
+    "subject": "验证码",
+    "text": "请在 2026 年前使用验证码 883311 完成验证。",
+    "expected": "883311",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-year2",
+    "lang": "zh-Hans",
+    "from": "安全 <secure@example.com>",
+    "subject": "验证码",
+    "text": "验证码已于2024年11月发送，请使用 661203。",
+    "expected": "661203",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-mixed",
+    "lang": "zh-Hans",
+    "from": "客服 <help@example.com>",
+    "subject": "验证码",
+    "text": "验证码：582916。如有问题请致电 13800138000。订单 2024110899 已创建，金额 86.50元。",
+    "expected": "582916",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-fullwidth",
+    "lang": "zh-Hans",
+    "from": "安全 <secure@example.com>",
+    "subject": "验证码",
+    "text": "验证码：５８２９１６",
+    "expected": "582916",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-newline",
+    "lang": "zh-Hans",
+    "from": "安全 <secure@example.com>",
+    "subject": "验证码",
+    "text": "验证码\n\n582910",
+    "expected": "582910",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-html",
+    "lang": "zh-Hans",
+    "from": "安全 <secure@example.com>",
+    "subject": "验证码",
+    "text": "<div>您的验证码是 <b>582916</b></div><p>订单号 202411120001</p>",
+    "expected": "582916",
+    "kind": "code",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-order-en",
+    "lang": "en",
+    "from": "Shop <orders@shop.example>",
+    "subject": "Your order",
+    "text": "Your order #A10293847 total $12.50 was placed on Nov 12, 2024. Zip code 100080. Error code 404.",
+    "expected": null,
+    "kind": "none",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-order-zh",
+    "lang": "zh-Hans",
+    "from": "商店 <orders@shop.example>",
+    "subject": "订单",
+    "text": "您的订单号：202411120001，金额 ¥199.00，下单日期 2024年11月12日，客服电话 400-800-1234，手机 13812345678。",
+    "expected": null,
+    "kind": "none",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-error",
+    "lang": "en",
+    "from": "CI <ci@example.com>",
+    "subject": "Build",
+    "text": "error code: 4041",
+    "expected": null,
+    "kind": "none",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-status",
+    "lang": "en",
+    "from": "API <api@example.com>",
+    "subject": "Status",
+    "text": "status code: 5000",
+    "expected": null,
+    "kind": "none",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-zip",
+    "lang": "en",
+    "from": "Shop <orders@shop.example>",
+    "subject": "Address",
+    "text": "Zip code 100080",
+    "expected": null,
+    "kind": "none",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-source",
+    "lang": "zh-Hans",
+    "from": "Docs <docs@example.com>",
+    "subject": "Docs",
+    "text": "请阅读 source code 和 area code 010。",
+    "expected": null,
+    "kind": "none",
+    "note": "migrated from extract tests"
+  },
+  {
+    "id": "legacy-plain",
+    "lang": "zh-Hans",
+    "from": "商店 <orders@shop.example>",
+    "subject": "发货",
+    "text": "没有验证码的普通通知，订单已发货。",
+    "expected": null,
+    "kind": "none",
+    "note": "migrated from extract tests"
+  }
+]

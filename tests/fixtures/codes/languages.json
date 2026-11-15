@@ -1,0 +1,242 @@
+[
+  {
+    "id": "lang-zh-Hant-0",
+    "lang": "zh-Hant",
+    "from": "Security <noreply@example.tw>",
+    "subject": "驗證碼",
+    "text": "您的驗證碼是 482913",
+    "expected": "482913",
+    "kind": "code",
+    "note": "zh-Hant keyword"
+  },
+  {
+    "id": "lang-zh-Hant-1",
+    "lang": "zh-Hant",
+    "from": "Security <noreply@example.tw>",
+    "subject": "驗證碼",
+    "text": "您的驗證碼是 661908",
+    "expected": "661908",
+    "kind": "code",
+    "note": "zh-Hant keyword"
+  },
+  {
+    "id": "lang-zh-Hant-2",
+    "lang": "zh-Hant",
+    "from": "Security <noreply@example.tw>",
+    "subject": "驗證碼",
+    "text": "您的驗證碼是 330291",
+    "expected": "330291",
+    "kind": "code",
+    "note": "zh-Hant keyword"
+  },
+  {
+    "id": "lang-ja-0",
+    "lang": "ja",
+    "from": "Security <noreply@example.jp>",
+    "subject": "認証コード",
+    "text": "認証コードは 482913",
+    "expected": "482913",
+    "kind": "code",
+    "note": "ja keyword"
+  },
+  {
+    "id": "lang-ja-1",
+    "lang": "ja",
+    "from": "Security <noreply@example.jp>",
+    "subject": "認証コード",
+    "text": "認証コードは 661908",
+    "expected": "661908",
+    "kind": "code",
+    "note": "ja keyword"
+  },
+  {
+    "id": "lang-ja-2",
+    "lang": "ja",
+    "from": "Security <noreply@example.jp>",
+    "subject": "認証コード",
+    "text": "認証コードは 330291",
+    "expected": "330291",
+    "kind": "code",
+    "note": "ja keyword"
+  },
+  {
+    "id": "lang-ko-0",
+    "lang": "ko",
+    "from": "Security <noreply@example.kr>",
+    "subject": "인증번호",
+    "text": "인증번호 482913",
+    "expected": "482913",
+    "kind": "code",
+    "note": "ko keyword"
+  },
+  {
+    "id": "lang-ko-1",
+    "lang": "ko",
+    "from": "Security <noreply@example.kr>",
+    "subject": "인증번호",
+    "text": "인증 코드 661908 를 입력해 주세요.",
+    "expected": "661908",
+    "kind": "code",
+    "note": "ko keyword"
+  },
+  {
+    "id": "lang-ko-2",
+    "lang": "ko",
+    "from": "Security <noreply@example.kr>",
+    "subject": "인증번호",
+    "text": "확인 코드 330291",
+    "expected": "330291",
+    "kind": "code",
+    "note": "ko keyword"
+  },
+  {
+    "id": "lang-es-0",
+    "lang": "es",
+    "from": "Security <noreply@example.es>",
+    "subject": "código de verificación",
+    "text": "Tu código de verificación es 482913",
+    "expected": "482913",
+    "kind": "code",
+    "note": "es keyword"
+  },
+  {
+    "id": "lang-es-1",
+    "lang": "es",
+    "from": "Security <noreply@example.es>",
+    "subject": "código de verificación",
+    "text": "Tu código de verificación es 661908",
+    "expected": "661908",
+    "kind": "code",
+    "note": "es keyword"
+  },
+  {
+    "id": "lang-es-2",
+    "lang": "es",
+    "from": "Security <noreply@example.es>",
+    "subject": "código de verificación",
+    "text": "Tu código de verificación es 330291",
+    "expected": "330291",
+    "kind": "code",
+    "note": "es keyword"
+  },
+  {
+    "id": "lang-pt-0",
+    "lang": "pt",
+    "from": "Security <noreply@example.pt>",
+    "subject": "código de verificação",
+    "text": "Seu código de verificação é 482913",
+    "expected": "482913",
+    "kind": "code",
+    "note": "pt keyword"
+  },
+  {
+    "id": "lang-pt-1",
+    "lang": "pt",
+    "from": "Security <noreply@example.pt>",
+    "subject": "código de verificação",
+    "text": "Seu código de verificação é 661908",
+    "expected": "661908",
+    "kind": "code",
+    "note": "pt keyword"
+  },
+  {
+    "id": "lang-pt-2",
+    "lang": "pt",
+    "from": "Security <noreply@example.pt>",
+    "subject": "código de verificação",
+    "text": "Seu código de verificação é 330291",
+    "expected": "330291",
+    "kind": "code",
+    "note": "pt keyword"
+  },
+  {
+    "id": "lang-de-0",
+    "lang": "de",
+    "from": "Security <noreply@example.de>",
+    "subject": "Bestätigungscode",
+    "text": "Ihr Bestätigungscode lautet 482913",
+    "expected": "482913",
+    "kind": "code",
+    "note": "de keyword"
+  },
+  {
+    "id": "lang-de-1",
+    "lang": "de",
+    "from": "Security <noreply@example.de>",
+    "subject": "Bestätigungscode",
+    "text": "Ihr Bestätigungscode lautet 661908",
+    "expected": "661908",
+    "kind": "code",
+    "note": "de keyword"
+  },
+  {
+    "id": "lang-de-2",
+    "lang": "de",
+    "from": "Security <noreply@example.de>",
+    "subject": "Bestätigungscode",
+    "text": "Ihr Bestätigungscode lautet 330291",
+    "expected": "330291",
+    "kind": "code",
+    "note": "de keyword"
+  },
+  {
+    "id": "lang-fr-0",
+    "lang": "fr",
+    "from": "Security <noreply@example.fr>",
+    "subject": "code de vérification",
+    "text": "Votre code de vérification est 482913",
+    "expected": "482913",
+    "kind": "code",
+    "note": "fr keyword"
+  },
+  {
+    "id": "lang-fr-1",
+    "lang": "fr",
+    "from": "Security <noreply@example.fr>",
+    "subject": "code de vérification",
+    "text": "Votre code de vérification est 661908",
+    "expected": "661908",
+    "kind": "code",
+    "note": "fr keyword"
+  },
+  {
+    "id": "lang-fr-2",
+    "lang": "fr",
+    "from": "Security <noreply@example.fr>",
+    "subject": "code de vérification",
+    "text": "Votre code de vérification est 330291",
+    "expected": "330291",
+    "kind": "code",
+    "note": "fr keyword"
+  },
+  {
+    "id": "lang-ru-0",
+    "lang": "ru",
+    "from": "Security <noreply@example.ru>",
+    "subject": "код подтверждения",
+    "text": "Ваш код подтверждения: 482913",
+    "expected": "482913",
+    "kind": "code",
+    "note": "ru keyword"
+  },
+  {
+    "id": "lang-ru-1",
+    "lang": "ru",
+    "from": "Security <noreply@example.ru>",
+    "subject": "код подтверждения",
+    "text": "Ваш код подтверждения: 661908",
+    "expected": "661908",
+    "kind": "code",
+    "note": "ru keyword"
+  },
+  {
+    "id": "lang-ru-2",
+    "lang": "ru",
+    "from": "Security <noreply@example.ru>",
+    "subject": "код подтверждения",
+    "text": "Ваш код подтверждения: 330291",
+    "expected": "330291",
+    "kind": "code",
+    "note": "ru keyword"
+  }
+]

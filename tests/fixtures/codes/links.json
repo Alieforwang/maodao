@@ -1,0 +1,134 @@
+[
+  {
+    "id": "link-0",
+    "lang": "zh-Hans",
+    "from": "产品 <hello@product.example>",
+    "subject": "请验证邮箱",
+    "text": "点击链接验证你的邮箱，链接 24 小时内有效。\nhttps://example.com/confirm-email/0",
+    "html": "<p>点击链接验证你的邮箱。</p><p><a href=\"https://example.com/confirm-email/0\">验证邮箱</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  },
+  {
+    "id": "link-1",
+    "lang": "en",
+    "from": "Notion <notify@notion.example>",
+    "subject": "Verify your email",
+    "text": "Verify your email to finish creating your account.\nhttps://example.com/verify/1",
+    "html": "<p>Verify your email address.</p><p><a href=\"https://example.com/verify/1\">Verify email</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  },
+  {
+    "id": "link-2",
+    "lang": "zh-Hans",
+    "from": "产品 <hello@product.example>",
+    "subject": "请验证邮箱",
+    "text": "点击链接验证你的邮箱，链接 24 小时内有效。\nhttps://example.com/confirm-email/2",
+    "html": "<p>点击链接验证你的邮箱。</p><p><a href=\"https://example.com/confirm-email/2\">验证邮箱</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  },
+  {
+    "id": "link-3",
+    "lang": "en",
+    "from": "Notion <notify@notion.example>",
+    "subject": "Verify your email",
+    "text": "Verify your email to finish creating your account.\nhttps://example.com/verify/3",
+    "html": "<p>Verify your email address.</p><p><a href=\"https://example.com/verify/3\">Verify email</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  },
+  {
+    "id": "link-4",
+    "lang": "zh-Hans",
+    "from": "产品 <hello@product.example>",
+    "subject": "请验证邮箱",
+    "text": "点击链接验证你的邮箱，链接 24 小时内有效。\nhttps://example.com/confirm-email/4",
+    "html": "<p>点击链接验证你的邮箱。</p><p><a href=\"https://example.com/confirm-email/4\">验证邮箱</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  },
+  {
+    "id": "link-5",
+    "lang": "en",
+    "from": "Notion <notify@notion.example>",
+    "subject": "Verify your email",
+    "text": "Verify your email to finish creating your account.\nhttps://example.com/verify/5",
+    "html": "<p>Verify your email address.</p><p><a href=\"https://example.com/verify/5\">Verify email</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  },
+  {
+    "id": "link-6",
+    "lang": "zh-Hans",
+    "from": "产品 <hello@product.example>",
+    "subject": "请验证邮箱",
+    "text": "点击链接验证你的邮箱，链接 24 小时内有效。\nhttps://example.com/confirm-email/6",
+    "html": "<p>点击链接验证你的邮箱。</p><p><a href=\"https://example.com/confirm-email/6\">验证邮箱</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  },
+  {
+    "id": "link-7",
+    "lang": "en",
+    "from": "Notion <notify@notion.example>",
+    "subject": "Verify your email",
+    "text": "Verify your email to finish creating your account.\nhttps://example.com/verify/7",
+    "html": "<p>Verify your email address.</p><p><a href=\"https://example.com/verify/7\">Verify email</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  },
+  {
+    "id": "link-8",
+    "lang": "zh-Hans",
+    "from": "产品 <hello@product.example>",
+    "subject": "请验证邮箱",
+    "text": "点击链接验证你的邮箱，链接 24 小时内有效。\nhttps://example.com/confirm-email/8",
+    "html": "<p>点击链接验证你的邮箱。</p><p><a href=\"https://example.com/confirm-email/8\">验证邮箱</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  },
+  {
+    "id": "link-9",
+    "lang": "en",
+    "from": "Notion <notify@notion.example>",
+    "subject": "Verify your email",
+    "text": "Verify your email to finish creating your account.\nhttps://example.com/verify/9",
+    "html": "<p>Verify your email address.</p><p><a href=\"https://example.com/verify/9\">Verify email</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  },
+  {
+    "id": "link-10",
+    "lang": "zh-Hans",
+    "from": "产品 <hello@product.example>",
+    "subject": "请验证邮箱",
+    "text": "点击链接验证你的邮箱，链接 24 小时内有效。\nhttps://example.com/confirm-email/10",
+    "html": "<p>点击链接验证你的邮箱。</p><p><a href=\"https://example.com/confirm-email/10\">验证邮箱</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  },
+  {
+    "id": "link-11",
+    "lang": "en",
+    "from": "Notion <notify@notion.example>",
+    "subject": "Verify your email",
+    "text": "Verify your email to finish creating your account.\nhttps://example.com/verify/11",
+    "html": "<p>Verify your email address.</p><p><a href=\"https://example.com/verify/11\">Verify email</a></p>",
+    "expected": null,
+    "kind": "link",
+    "note": "link verification"
+  }
+]

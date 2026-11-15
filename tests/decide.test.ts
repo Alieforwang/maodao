@@ -49,25 +49,6 @@ describe("新邮件策略", () => {
     expect(decideNotification({ ...base, alreadyNotified: true })).toMatchObject({ action: "skip", reason: "already-notified" });
   });
 
-  it("静音过的发件域名不再弹出验证码", () => {
-    const decision = decideNotification({ ...base, senderPrefs: { "alipay.com": { muted: true } } });
-    expect(decision).toMatchObject({ action: "skip", reason: "muted" });
-  });
-
-  it("链接验证邮件给出打开按钮需要的地址，但不是验证码", () => {
-    const decision = decideNotification({
-      ...base,
-      subject: "Verify your email",
-      body: "Verify your email address.\nhttps://example.com/verify/finish",
-    });
-    expect(decision.action).toBe("notify");
-    if (decision.action === "notify") {
-      expect(decision.reason).toBe("link");
-      expect(decision.code).toBeNull();
-      expect(decision.verifyUrl).toBe("https://example.com/verify/finish");
-    }
-  });
-
   it("复制必须来自用户动作", () => {
     expect(isCopyReason("notification-click")).toBe(true);
     expect(isCopyReason("copy-button")).toBe(true);

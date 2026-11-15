@@ -1,0 +1,152 @@
+[
+  {
+    "id": "bug-promo",
+    "lang": "en",
+    "from": "Deals <deals@shop.example>",
+    "subject": "20% off",
+    "text": "Your promo code: SAVE20 for 20% off",
+    "expected": null,
+    "kind": "none",
+    "note": "SAVE20 must not alert"
+  },
+  {
+    "id": "bug-invite",
+    "lang": "zh-Hans",
+    "from": "增长 <hello@example.com>",
+    "subject": "邀请",
+    "text": "验证码10分钟内有效…邀请码 ABC123",
+    "expected": null,
+    "kind": "none",
+    "note": "invite code only"
+  },
+  {
+    "id": "bug-reference",
+    "lang": "en",
+    "from": "Auth <noreply@example.com>",
+    "subject": "verification code",
+    "text": "verification code … Reference 2A9F3C. Code 771234",
+    "expected": "771234",
+    "kind": "code",
+    "note": "reference must lose to Code"
+  },
+  {
+    "id": "bug-hant",
+    "lang": "zh-Hant",
+    "from": "安全 <secure@example.com>",
+    "subject": "驗證碼",
+    "text": "您的驗證碼是 482913，10 分鐘內有效。",
+    "expected": "482913",
+    "kind": "code",
+    "note": "zh-Hant"
+  },
+  {
+    "id": "bug-ja",
+    "lang": "ja",
+    "from": "サポート <noreply@example.jp>",
+    "subject": "認証コード",
+    "text": "認証コードは 482913 です。",
+    "expected": "482913",
+    "kind": "code",
+    "note": "ja"
+  },
+  {
+    "id": "bug-ko",
+    "lang": "ko",
+    "from": "보안 <noreply@example.kr>",
+    "subject": "인증번호",
+    "text": "인증번호 482913 를 입력해 주세요.",
+    "expected": "482913",
+    "kind": "code",
+    "note": "ko"
+  },
+  {
+    "id": "bug-es",
+    "lang": "es",
+    "from": "Seguridad <noreply@example.es>",
+    "subject": "código",
+    "text": "Tu código de verificación es 482913.",
+    "expected": "482913",
+    "kind": "code",
+    "note": "es"
+  },
+  {
+    "id": "bug-de",
+    "lang": "de",
+    "from": "Sicherheit <noreply@example.de>",
+    "subject": "Bestätigungscode",
+    "text": "Ihr Bestätigungscode lautet 482913.",
+    "expected": "482913",
+    "kind": "code",
+    "note": "de"
+  },
+  {
+    "id": "bug-grouped",
+    "lang": "en",
+    "from": "Auth <noreply@example.com>",
+    "subject": "Your code",
+    "text": "Your code: 123-456",
+    "expected": "123456",
+    "kind": "code",
+    "note": "grouped digits"
+  },
+  {
+    "id": "bug-letters",
+    "lang": "en",
+    "from": "Auth <noreply@example.com>",
+    "subject": "Enter this code",
+    "text": "Enter this code: ABCDEF",
+    "expected": "ABCDEF",
+    "kind": "code",
+    "note": "pure letters"
+  },
+  {
+    "id": "bug-use",
+    "lang": "en",
+    "from": "Auth <noreply@example.com>",
+    "subject": "Verify",
+    "text": "Use code 482913 to verify",
+    "expected": "482913",
+    "kind": "code",
+    "note": "use code"
+  },
+  {
+    "id": "pattern-type",
+    "lang": "en",
+    "from": "Auth <noreply@example.com>",
+    "subject": "Type this code",
+    "text": "Type the following code: 482913",
+    "expected": "482913",
+    "kind": "code",
+    "note": "type the following code"
+  },
+  {
+    "id": "pattern-is-your",
+    "lang": "en",
+    "from": "Auth <noreply@example.com>",
+    "subject": "Code",
+    "text": "482913 is your code",
+    "expected": "482913",
+    "kind": "code",
+    "note": "X is your code"
+  },
+  {
+    "id": "pattern-space",
+    "lang": "en",
+    "from": "Auth <noreply@example.com>",
+    "subject": "Your code",
+    "text": "Your code: 123 456",
+    "expected": "123456",
+    "kind": "code",
+    "note": "grouped space"
+  },
+  {
+    "id": "pattern-abc",
+    "lang": "en",
+    "from": "Auth <noreply@example.com>",
+    "subject": "Enter code",
+    "text": "Enter this code: ABC-123",
+    "expected": "ABC123",
+    "kind": "code",
+    "note": "ABC-123"
+  }
+]
