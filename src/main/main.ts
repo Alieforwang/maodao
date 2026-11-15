@@ -10,6 +10,7 @@ import { OutlookLogin, readJwtClaims, type OAuthEvent, type OAuthStartOptions, t
 import { chooseSavedMailbox, findDuplicateOutlook, mapOutlookFailure, readIdentity } from "../shared/outlookMailbox.js";
 import { PROVIDERS } from "../shared/presets.js";
 import { verifyOutlookMailbox } from "./outlookVerify.js";
+import { requestAiVerdict, statusLine } from "../shared/aiRecognize.js";
 import { toRedactedFixture } from "../shared/fixtureExport.js";
 import { isCopyReason, type AccountStatus, type AppState, type HistoryItem, type ToastPayload } from "../shared/types.js";
 import { logInfo } from "./log.js";
@@ -43,12 +44,14 @@ let store!: AccountStore;
 let monitor!: MailMonitor;
 let updater: AppUpdater | undefined;
 let updateStatus = INITIAL_UPDATE_STATUS;
+let aiStatus = "未启用";
 function createMonitor(): MailMonitor {
   return new MailMonitor({
   getAccounts: () => store.accounts,
   getSecret: (id) => store.getSecret(id),
   replaceSecret: (id, secret) => store.replaceSecret(id, secret),
   getSettings: () => store.settings,
+  getAiKey: () => store.getAiKey(),
   hasSeen: (id) => store.hasSeen(id),
   remember: (id) => store.remember(id),
   onStatus: (status) => {
@@ -56,6 +59,10 @@ function createMonitor(): MailMonitor {
     broadcast();
   },
   onNotify: (event) => deliver(event),
+  onAiStatus: (message) => {
+    aiStatus = message;
+    broadcast();
+  },
   });
 }
 
@@ -75,6 +82,8 @@ function snapshot(): AppState {
     version: app.getVersion(),
     e2e,
     update: updateStatus,
+    aiKeySaved: store.hasAiKey(),
+    aiStatus,
   };
 }
 
@@ -308,6 +317,37 @@ function wireIpc(): void {
     store.setEnabled(id, enabled);
     monitor.sync();
     broadcast();
+  });
+  ipcMain.handle("ai-key", (_event, key: unknown) => {
+    const persisted = store.setAiKey(typeof key === "string" ? key : "");
+    aiStatus = store.hasAiKey()
+      ? (persisted ? "密钥已加密保存" : "这台系统不能加密保存密钥，密钥只留在本次运行的内存里")
+      : "密钥已清除";
+    broadcast();
+    return { saved: store.hasAiKey(), persisted };
+  });
+  ipcMain.handle("ai-test", async () => {
+    const settings = store.settings;
+    if (!settings.aiBaseUrl.trim() || !settings.aiModel.trim()) {
+      aiStatus = "请先填写接口地址和模型";
+      broadcast();
+      return aiStatus;
+    }
+    const result = await requestAiVerdict({
+      baseUrl: settings.aiBaseUrl,
+      apiKey: store.getAiKey(),
+      model: settings.aiModel,
+      subject: "测试",
+      from: "test@example.com",
+      text: "Your verification code is 482913",
+    });
+    aiStatus = result.verdict?.accepted && result.verdict.code === "482913"
+      ? "测试通过"
+      : (!result.failure && result.verdict && !result.verdict.accepted
+        ? "测试未通过，模型结果里没有原文中的验证码"
+        : statusLine(result.failure, result.detail));
+    broadcast();
+    return aiStatus;
   });
   ipcMain.handle("settings", (_event, patch) => {
     const settings = store.updateSettings(patch);

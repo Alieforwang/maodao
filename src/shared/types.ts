@@ -39,6 +39,13 @@ export interface Settings {
   autoCheckUpdates: boolean;
   /** 按发件域名记住的校正，不挂在某个账号上。 */
   senderPrefs: Record<string, SenderPref>;
+  /** 默认关闭。配好接口后才会对把握不够的邮件调用模型。 */
+  aiEnabled: boolean;
+  aiPreset: "gemini" | "openrouter" | "groq" | "ollama" | "custom";
+  aiBaseUrl: string;
+  aiModel: string;
+  /** 高级：连高置信的规则结果也再问一次模型，但模型不能推翻高置信规则。 */
+  aiEveryMessage: boolean;
 }
 
 export interface SenderPref {
@@ -60,6 +67,7 @@ export interface SecretPayload {
   accessToken?: string;
   refreshToken?: string;
   expiresAt?: number;
+  apiKey?: string;
 }
 
 export interface HistoryItem {
@@ -133,6 +141,8 @@ export interface AppState {
   version: string;
   e2e: boolean;
   update: UpdateStatus;
+  aiKeySaved: boolean;
+  aiStatus: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -148,6 +158,11 @@ export const DEFAULT_SETTINGS: Settings = {
   oauthRedirectUri: "",
   autoCheckUpdates: true,
   senderPrefs: {},
+  aiEnabled: false,
+  aiPreset: "custom",
+  aiBaseUrl: "",
+  aiModel: "",
+  aiEveryMessage: false,
 };
 
 export const COPY_REASONS: readonly CopyReason[] = [

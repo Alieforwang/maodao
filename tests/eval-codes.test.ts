@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { mergeRuleAndAi, type AiVerdict } from "../src/shared/aiRecognize.js";
 import * as extract from "../src/shared/extract.js";
 
 export interface CodeFixture {
@@ -111,5 +112,21 @@ describe("验证码样本评估", () => {
     const result = extract.extractFromMail({ subject: "验证码", html, from: "安全 <secure@example.com>" });
     expect(performance.now() - started).toBeLessThan(20);
     expect(result.code).toBe("582916");
+  });
+
+  it("可选 AI 模式只接受原文里存在的码", () => {
+    const missed = extract.extractFromMail({ subject: "hello", body: "please use 482913 today", from: "a@example.com" });
+    const merged = mergeRuleAndAi(missed, { kind: "code", code: "482913", confidence: "high", reason: "mock", accepted: true });
+    expect(merged).toMatchObject({ code: "482913", confidence: "high" });
+    const hallucinated = mergeRuleAndAi(missed, { kind: "code", code: "999999", confidence: "high", reason: "guess", accepted: false });
+    expect(hallucinated.code).not.toBe("999999");
+    if (process.env.MADAO_EVAL_AI === "1") {
+      const withMock = samples.filter((sample) => sample.expected).every((sample) => {
+        const rule = extract.extractFromMail({ subject: sample.subject, body: sample.text || "", html: sample.html, from: sample.from });
+        const verdict: AiVerdict = { kind: "code", code: sample.expected || "", confidence: "high", reason: "mock", accepted: true };
+        return mergeRuleAndAi(rule, verdict).code === sample.expected;
+      });
+      expect(withMock).toBe(true);
+    }
   });
 });

@@ -1,5 +1,7 @@
 import { ImapFlow } from "imapflow";
+import { cachedOrThrottled, rememberAiCall, requestAiVerdict, shouldAskAi, statusLine, type AiMemory, type AiSettings, type AiVerdict } from "../shared/aiRecognize.js";
 import { decideNotification } from "../shared/decide.js";
+import { extractFromMail } from "../shared/extract.js";
 import { explainImapError, isAuthFailure } from "../shared/redact.js";
 import { parseRawMail } from "../shared/mail.js";
 import { imapLoginUser } from "../shared/outlookMailbox.js";
@@ -10,6 +12,7 @@ import { logInfo } from "./log.js";
 
 const POLL_MS = 25_000;
 const STARTUP_LIMIT = 3;
+const aiMemory: AiMemory = { cache: new Map(), lastCallAt: 0 };
 
 export interface NotifyEvent {
   accountId: string;
@@ -40,6 +43,8 @@ export interface MonitorDeps {
   remember(messageId: string): void;
   onStatus(status: AccountStatus): void;
   onNotify(event: NotifyEvent): void;
+  onAiStatus?(message: string): void;
+  getAiKey(): string;
 }
 
 type IdleClient = ImapFlow & { capabilities: Map<string, unknown> };
@@ -292,6 +297,38 @@ export class MailMonitor {
     }
   }
 
+  private async lookupAi(id: string, subject: string, from: string, text: string, html: string): Promise<AiVerdict | null> {
+    const settings = this.deps.getSettings();
+    const rule = extractFromMail({ subject, body: text, html, from });
+    const key = this.deps.getAiKey();
+    const aiSettings: AiSettings = {
+      enabled: settings.aiEnabled,
+      baseUrl: settings.aiBaseUrl,
+      model: settings.aiModel,
+      everyMessage: settings.aiEveryMessage,
+      needsKey: settings.aiPreset !== "ollama",
+    };
+    if (!shouldAskAi(rule, aiSettings, Boolean(key))) return null;
+    const gate = cachedOrThrottled(aiMemory, id, Date.now());
+    if (gate.skip) {
+      if (gate.status) this.deps.onAiStatus?.(gate.status);
+      return gate.verdict;
+    }
+    const result = await requestAiVerdict({
+      baseUrl: settings.aiBaseUrl,
+      apiKey: key,
+      model: settings.aiModel,
+      subject,
+      from,
+      text,
+    });
+    const verdict = result.verdict?.accepted ? result.verdict : null;
+    rememberAiCall(aiMemory, id, verdict, Date.now());
+    this.deps.onAiStatus?.(result.failure ? statusLine(result.failure, result.detail) : "上次识别正常");
+    if (result.failure) logInfo("AI 识别改用规则", { failure: result.failure });
+    return verdict;
+  }
+
   private async handle(account: Account, message: Fetched, baseline: number, startup: boolean): Promise<void> {
     let subject = message.envelope?.subject || "";
     let from = envelopeFrom(message);
@@ -310,6 +347,7 @@ export class MailMonitor {
     }
     const id = messageId || `${account.id}:${message.uid}`;
     const settings = this.deps.getSettings();
+    const ai = await this.lookupAi(id, subject, from, text, html);
     const decision = decideNotification({
       subject,
       from,
@@ -323,6 +361,7 @@ export class MailMonitor {
       notifyAllMail: !settings.notifyOnlyCodes,
       alreadyNotified: this.deps.hasSeen(id),
       senderPrefs: settings.senderPrefs,
+      ai,
     });
     this.deps.remember(id);
     if (decision.action !== "notify") return;

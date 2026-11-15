@@ -149,4 +149,14 @@ describe("凭据存储", () => {
     expect(reloaded.settings.senderPrefs["a@qq.com"]).toBeUndefined();
     expect(reloaded.settings.openAtLogin).toBe(DEFAULT_SETTINGS.openAtLogin);
   });
+
+  it("AI 密钥加密保存，不写进配置文件", () => {
+    const store = tempStore(hexBox());
+    expect(store.setAiKey("sk-test-key-not-real")).toBe(true);
+    const directory = (store as unknown as { directory: string }).directory;
+    const dumped = fs.readdirSync(directory).map((name) => fs.readFileSync(path.join(directory, name), "utf8")).join("\n");
+    expect(dumped).not.toContain("sk-test-key-not-real");
+    expect(store.getAiKey()).toBe("sk-test-key-not-real");
+    expect(store.settings.aiEnabled).toBe(false);
+  });
 });

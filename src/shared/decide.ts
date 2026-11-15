@@ -1,3 +1,4 @@
+import { mergeRuleAndAi, type AiVerdict } from "./aiRecognize.js";
 import { extractFromMail, senderDomain, type Candidate } from "./extract.js";
 import { inferService } from "./service.js";
 import type { SenderPref } from "./types.js";
@@ -15,6 +16,8 @@ export interface DecideInput {
   alreadyNotified: boolean;
   html?: string;
   senderPrefs?: Record<string, SenderPref>;
+  /** Already checked against the original text. Null means the model was not used or failed. */
+  ai?: AiVerdict | null;
 }
 
 export type Decision =
@@ -41,7 +44,7 @@ export function decideNotification(input: DecideInput): Decision {
   }
   const domain = senderDomain(input.from);
   if (input.senderPrefs?.[domain]?.muted) return { action: "skip", reason: "muted" };
-  const extracted = extractFromMail({ subject: input.subject, body: input.body, html: input.html, from: input.from });
+  const extracted = mergeRuleAndAi(extractFromMail({ subject: input.subject, body: input.body, html: input.html, from: input.from }), input.ai ?? null);
   const service = inferService(input.from, input.subject, input.body);
   const ranked = extracted.candidates.slice(0, 3);
   const selectedIndex = preferredIndex(ranked, input.senderPrefs?.[domain]?.preferIndex);

@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "eval:codes": "vitest run tests/eval-codes.test.ts",
+    "eval:codes:ai": "vitest run tests/eval-codes.test.ts -t \"可选 AI\"",
     "e2e": "node scripts/build.mjs && node scripts/e2e.mjs",
     "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never --config electron-builder.yml"
   },

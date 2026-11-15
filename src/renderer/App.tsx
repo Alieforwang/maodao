@@ -3,6 +3,7 @@ import type { Account, AccountDraft, AppState, ProviderId } from "../shared/type
 import { PROVIDER_LIST, PROVIDERS, stripCredentialWhitespace } from "../shared/presets";
 import { GearIcon, HistoryIcon, MailIcon } from "./icons";
 import { formatWhen, statusOf } from "./format";
+import { AI_PRESETS } from "../shared/aiRecognize";
 import { outlookDisplay } from "../shared/outlookMailbox";
 import { OutlookAdd } from "./OutlookAdd";
 
@@ -197,6 +198,46 @@ function Settings({ state }: { state: AppState }) {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+      <section className="set-block">
+        <h2>AI 识别</h2>
+        <div className="group">
+          <SetRow title="启用 AI 识别" text="默认关闭。规则已经很有把握时不会调用。只有把握不够，或什么都没认出时才问模型。" on={settings.aiEnabled} onToggle={() => set({ aiEnabled: !settings.aiEnabled })} />
+          <div className="set-row">
+            <div style={{ flex: 1 }}>
+              <h3>服务商</h3>
+              <p>接口地址按公开文档预填。模型名没有在这台机器上实际调用过，测试失败时改成控制台里的名字。</p>
+              <div className="segment" role="radiogroup" aria-label="AI 服务商" style={{ marginTop: 8 }}>
+                {AI_PRESETS.map((preset) => (
+                  <button key={preset.id} type="button" className={settings.aiPreset === preset.id ? "on" : ""} onClick={() => set({ aiPreset: preset.id, aiBaseUrl: preset.baseUrl, aiModel: preset.model })}>{preset.name}</button>
+                ))}
+              </div>
+              <div className="field" style={{ marginTop: 8 }}>
+                <label htmlFor="ai-url">接口根地址</label>
+                <input id="ai-url" value={settings.aiBaseUrl} placeholder="https://example.com/v1" onChange={(event) => set({ aiBaseUrl: event.target.value.trim(), aiPreset: "custom" })} />
+              </div>
+              <div className="field" style={{ marginTop: 8 }}>
+                <label htmlFor="ai-model">模型</label>
+                <input id="ai-model" value={settings.aiModel} placeholder="模型名" onChange={(event) => set({ aiModel: event.target.value.trim(), aiPreset: "custom" })} />
+              </div>
+              <div className="field" style={{ marginTop: 8 }}>
+                <label htmlFor="ai-key">API 密钥</label>
+                <input id="ai-key" type="password" placeholder={state.aiKeySaved ? "已加密保存，留空则不改" : "本地 Ollama 可以不填"} onBlur={(event) => { if (event.target.value.trim()) void api.setAiKey(event.target.value); event.target.value = ""; }} />
+              </div>
+              <p className="hint">{AI_PRESETS.find((item) => item.id === settings.aiPreset)?.endpointNote} {AI_PRESETS.find((item) => item.id === settings.aiPreset)?.modelNote}</p>
+              <p className="hint">邮件内容会发送到所选服务商，免费服务可能用于训练；本地 Ollama 不联网。</p>
+              <p className="hint">{state.aiStatus}</p>
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button className="btn" type="button" onClick={() => void api.testAi()}>测试</button>
+                {state.aiKeySaved && <button className="btn" type="button" onClick={() => void api.setAiKey("")}>清除密钥</button>}
+              </div>
+            </div>
+          </div>
+          <details className="advanced">
+            <summary>高级 · 每封都用 AI</summary>
+            <SetRow title="每封都用 AI" text="高置信的规则结果仍然保留，模型不能推翻它。" on={settings.aiEveryMessage} onToggle={() => set({ aiEveryMessage: !settings.aiEveryMessage })} />
+          </details>
         </div>
       </section>
       <section className="set-block">

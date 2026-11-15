@@ -88,6 +88,24 @@ export class AccountStore {
     return this.secrets.get(id);
   }
 
+  getAiKey(): string {
+    return this.secrets.get("__ai_key__")?.apiKey || "";
+  }
+
+  hasAiKey(): boolean {
+    return Boolean(this.getAiKey());
+  }
+
+  setAiKey(key: string): boolean {
+    const trimmed = key.trim();
+    if (!trimmed) {
+      this.secrets.delete("__ai_key__");
+      if (this.box.available) this.persistSecrets();
+      return false;
+    }
+    return this.writeSecret("__ai_key__", { apiKey: trimmed });
+  }
+
   hasSeen(messageId: string): boolean {
     return this.config.seen.includes(messageId);
   }
