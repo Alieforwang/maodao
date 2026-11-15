@@ -194,6 +194,28 @@ function Settings({ state }: { state: AppState }) {
         </div>
       </section>
       <section className="set-block">
+        <h2>更新</h2>
+        <div className="group">
+          <div className="set-row">
+            <div>
+              <h3>当前版本 {state.version}</h3>
+              <p>{state.update.message}</p>
+            </div>
+            <button className="btn" type="button" onClick={() => void api.checkForUpdates()}>检查更新</button>
+          </div>
+          <SetRow title="自动检查更新" text="启动约 20 秒后检查一次，之后每 6 小时再检查。下载在后台进行。" on={settings.autoCheckUpdates} onToggle={() => set({ autoCheckUpdates: !settings.autoCheckUpdates })} />
+          {state.update.phase === "downloaded" && (
+            <div className="set-row">
+              <div>
+                <h3>更新已就绪</h3>
+                <p>稍后退出码到时会安装。也可以现在重启。</p>
+              </div>
+              <button className="btn-primary" type="button" onClick={() => void api.installUpdate()}>立即重启更新</button>
+            </div>
+          )}
+        </div>
+      </section>
+      <section className="set-block">
         <h2>Outlook 登录</h2>
         <div className="group">
           <div className="set-row">

@@ -1,6 +1,6 @@
 {
   "name": "madao",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "码到 — 常驻系统托盘的邮箱验证码提醒",
   "author": "码到",
@@ -13,11 +13,12 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "node scripts/build.mjs && node scripts/e2e.mjs",
-    "dist:win": "npm run build && electron-builder --win nsis --x64 --config electron-builder.yml"
+    "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never --config electron-builder.yml"
   },
   "dependencies": {
     "imapflow": "^1.0.186",
-    "mailparser": "^3.7.3"
+    "mailparser": "^3.7.3",
+    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "@fontsource/ibm-plex-mono": "^5.2.5",

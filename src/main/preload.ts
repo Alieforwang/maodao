@@ -18,6 +18,8 @@ const api = {
   copyCode: (code: string, reason: CopyReason) => ipcRenderer.invoke("copy-code", code, reason) as Promise<string>,
   clearHistory: () => ipcRenderer.invoke("history-clear"),
   setPaused: (paused: boolean) => ipcRenderer.invoke("paused", paused),
+  checkForUpdates: () => ipcRenderer.invoke("update-check"),
+  installUpdate: () => ipcRenderer.invoke("update-install"),
   startOAuth: (mode: "pkce" | "device") => ipcRenderer.invoke("oauth-start", mode),
   cancelOAuth: () => ipcRenderer.invoke("oauth-cancel"),
   onOAuth: (callback: (event: OAuthEvent) => void) => {

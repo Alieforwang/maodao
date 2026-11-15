@@ -27,6 +27,17 @@ export interface Settings {
   outlookClientId: string;
   outlookTenant: string;
   oauthRedirectPort: number;
+  /** 启动后以及每 6 小时检查 GitHub Releases。 */
+  autoCheckUpdates: boolean;
+}
+
+export type UpdatePhase = "idle" | "checking" | "latest" | "available" | "downloading" | "downloaded" | "error";
+
+export interface UpdateStatus {
+  phase: UpdatePhase;
+  message: string;
+  percent?: number;
+  version?: string;
 }
 
 export interface SecretPayload {
@@ -97,6 +108,7 @@ export interface AppState {
   paused: boolean;
   version: string;
   e2e: boolean;
+  update: UpdateStatus;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -109,6 +121,7 @@ export const DEFAULT_SETTINGS: Settings = {
   outlookClientId: "",
   outlookTenant: "consumers",
   oauthRedirectPort: 45832,
+  autoCheckUpdates: true,
 };
 
 export const COPY_REASONS: readonly CopyReason[] = [

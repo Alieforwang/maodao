@@ -10,6 +10,10 @@ extraResources:
   - from: resources/icon.png
     to: icon.png
 asar: true
+publish:
+  provider: github
+  owner: Alieforwang
+  repo: maodao
 win:
   signAndEditExecutable: false
   target:
@@ -17,7 +21,7 @@ win:
       arch:
         - x64
   icon: resources/icon.ico
-  artifactName: 码到-Setup-${version}-x64.${ext}
+  artifactName: MaoDao-Setup-${version}-x64.${ext}
 nsis:
   oneClick: false
   perMachine: false

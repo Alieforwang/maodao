@@ -43,6 +43,7 @@ export function TrayApp() {
         <button type="button" onClick={() => api.windowControl("show")}>打开主窗口</button>
         <button type="button" onClick={() => api.setPaused(!state.paused)}>{state.paused ? "继续监听" : "暂停监听"}</button>
         <button type="button" onClick={() => api.clearHistory()}>清空记录</button>
+        <button type="button" onClick={() => void api.checkForUpdates()}>检查更新</button>
         <button type="button" onClick={() => api.windowControl("quit")}>退出</button>
       </div>
     </aside>

@@ -10,6 +10,8 @@ import { OutlookLogin, type OAuthEvent } from "./oauth.js";
 import { isCopyReason, type AccountStatus, type AppState, type HistoryItem, type ToastPayload } from "../shared/types.js";
 import { logInfo } from "./log.js";
 import { runHarness } from "./harness.js";
+import { AppUpdater } from "./updater.js";
+import { INITIAL_UPDATE_STATUS } from "../shared/updates.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.MADAO_DEV === "1";
@@ -30,6 +32,8 @@ const statuses = new Map<string, AccountStatus>();
 
 let store!: AccountStore;
 let monitor!: MailMonitor;
+let updater: AppUpdater | undefined;
+let updateStatus = INITIAL_UPDATE_STATUS;
 function createMonitor(): MailMonitor {
   return new MailMonitor({
   getAccounts: () => store.accounts,
@@ -61,6 +65,7 @@ function snapshot(): AppState {
     paused,
     version: app.getVersion(),
     e2e,
+    update: updateStatus,
   };
 }
 
@@ -290,6 +295,7 @@ function wireIpc(): void {
   ipcMain.handle("settings", (_event, patch) => {
     const settings = store.updateSettings(patch);
     applyLogin(settings.openAtLogin);
+    if ("autoCheckUpdates" in patch) updater?.schedule();
     broadcast();
     return settings;
   });
@@ -334,6 +340,8 @@ function wireIpc(): void {
     if (action === "maximize") mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
     if (action === "close") mainWindow.hide();
   });
+  ipcMain.handle("update-check", () => updater?.check() ?? updateStatus);
+  ipcMain.handle("update-install", () => updater?.installNow());
   ipcMain.handle("toast-current", () => latestToast);
   ipcMain.handle("toast-dismiss", () => dismissToast());
   ipcMain.handle("oauth-cancel", () => login?.cancel());
@@ -399,6 +407,21 @@ if (gotLock) app.whenReady().then(async () => {
   const hidden = process.argv.includes("--hidden") || (store.settings.startMinimized && !e2e);
   if (!hidden) mainWindow.show();
   monitor.sync();
+  updater = new AppUpdater({
+    onChange: (status) => {
+      updateStatus = status;
+      broadcast();
+    },
+    gate: () => ({
+      dev: isDev || e2e,
+      packaged: app.isPackaged,
+      auto: store.settings.autoCheckUpdates,
+    }),
+    markQuitting: () => {
+      quitting = true;
+    },
+  });
+  updater.start();
   if (e2e) {
     try {
       await runHarness({
