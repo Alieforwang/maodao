@@ -25,16 +25,20 @@ export function ToastApp() {
   }, [api, payload]);
 
   if (!payload) return null;
-  const copy = (reason: "notification-click" | "copy-button") => {
-    if (!payload.code || !api) return;
-    void api.copyCode(payload.code, reason).then(() => setCopied(true));
+  const index = payload.selectedIndex || 0;
+  const code = payload.candidates?.[index] || payload.code;
+  const display = payload.displays?.[index] || payload.display || code;
+  const kind = payload.kind || (code ? "code" : "mail");
+  const copy = (reason: "notification-click" | "copy-button", value = code) => {
+    if (!value || !api || kind === "link") return;
+    void api.copyCode(value, reason).then(() => setCopied(true));
   };
   return (
     <article className="toast" onClick={(event) => {
       const target = event.target as HTMLElement;
-      if (target.closest("[data-action='dismiss']")) return;
-      if (target.closest("[data-action='copy']")) copy("copy-button");
-      else copy("notification-click");
+      if (target.closest("button")) return;
+      if (kind === "link" || kind === "maybe") return;
+      copy("notification-click");
     }}>
       <div className="toast-top">
         <span className="mark sm app">码</span>
@@ -45,16 +49,30 @@ export function ToastApp() {
         </button>
       </div>
       <div className="toast-body">
-        <div className="code">{payload.code || "新邮件"}</div>
+        {kind === "link" ? <div className="code link-title">这是一封链接验证邮件</div> : kind === "maybe" ? <div className="maybe">可能是验证码</div> : <div className="code">{display}</div>}
+        {kind === "maybe" && (
+          <div className="chips">
+            {(payload.candidates || []).slice(0, 3).map((item, chip) => (
+              <button key={`${item}-${chip}`} type="button" className={chip === index ? "on" : ""} onClick={() => copy("copy-button", item)}>{payload.displays?.[chip] || item}</button>
+            ))}
+          </div>
+        )}
         <div className="service">{payload.service}</div>
         <div className="subject">{payload.subject}</div>
         <div className="mailto">收件邮箱 · {payload.email}</div>
       </div>
       <div className="toast-actions">
-        {payload.code ? <button className="copy" type="button" data-action="copy">{copied ? "已复制" : "复制验证码"}</button> : <button type="button" data-action="dismiss">知道了</button>}
-        <button type="button" data-action="dismiss">关闭</button>
+        {kind === "link" ? <button className="copy" type="button" onClick={() => api?.openVerifyLink()}>打开链接</button> : code ? <button className="copy" type="button" data-action="copy" onClick={() => copy("copy-button")}>{copied ? "已复制" : "复制验证码"}</button> : <button type="button" data-action="dismiss" onClick={() => api?.dismissToast()}>知道了</button>}
+        <button type="button" data-action="dismiss" onClick={() => api?.dismissToast()}>关闭</button>
       </div>
-      <p className="toast-hint">点击通知或「复制验证码」才写入剪贴板，不会自动复制。</p>
+      {kind !== "mail" && (
+        <div className="toast-extra">
+          <button type="button" onClick={() => api?.muteToastSender()}>不是验证码</button>
+          {kind !== "link" && (payload.candidates?.length || 0) > 1 && <button type="button" onClick={() => void api?.chooseOtherCode()}>选另一个</button>}
+          <button type="button" onClick={() => api?.exportRedactedSample()}>导出脱敏样本</button>
+        </div>
+      )}
+      <p className="toast-hint">{kind === "link" ? "只有点「打开链接」才会离开码到，不会自动打开。" : "点击通知或「复制验证码」才写入剪贴板，不会自动复制。"}</p>
     </article>
   );
 }

@@ -49,6 +49,44 @@ describe("新邮件策略", () => {
     expect(decideNotification({ ...base, alreadyNotified: true })).toMatchObject({ action: "skip", reason: "already-notified" });
   });
 
+  it("分组验证码按原样显示，复制时去掉分隔符", () => {
+    const decision = decideNotification({ ...base, subject: "Your code", from: "Auth <noreply@example.com>", body: "Your code: 123-456" });
+    expect(decision).toMatchObject({ action: "notify", reason: "code", code: "123456", display: "123-456" });
+  });
+
+  it("拿不准时弹出候选，低置信不弹", () => {
+    const medium = decideNotification({ ...base, subject: "Code", from: "Auth <noreply@example.com>", body: "Code 771234. Code 882211." });
+    expect(medium.action).toBe("notify");
+    if (medium.action === "notify") {
+      expect(medium.reason).toBe("maybe");
+      expect(medium.candidates.map((item) => item.code)).toEqual(expect.arrayContaining(["771234", "882211"]));
+    }
+    expect(decideNotification({ ...base, body: "订单号 202411120001 已发货" }).action).toBe("skip");
+  });
+
+  it("链接验证会通知地址，但不是验证码", () => {
+    const decision = decideNotification({
+      ...base,
+      subject: "Verify your email",
+      from: "Notion <notify@notion.example>",
+      body: "Verify your email address.\nhttps://example.com/verify/finish",
+    });
+    expect(decision).toMatchObject({ action: "notify", reason: "link", code: null, verifyUrl: "https://example.com/verify/finish" });
+  });
+
+  it("静音的发件域名不再弹出，偏好按域名而不是账号", () => {
+    const muted = decideNotification({ ...base, senderPrefs: { "alipay.com": { muted: true } } });
+    expect(muted).toMatchObject({ action: "skip", reason: "muted" });
+    const preferred = decideNotification({
+      ...base,
+      subject: "Code",
+      from: "Auth <noreply@example.com>",
+      body: "Code 771234. Code 882211.",
+      senderPrefs: { "example.com": { preferIndex: 1 } },
+    });
+    if (preferred.action === "notify") expect(preferred.selectedIndex).toBe(1);
+  });
+
   it("复制必须来自用户动作", () => {
     expect(isCopyReason("notification-click")).toBe(true);
     expect(isCopyReason("copy-button")).toBe(true);

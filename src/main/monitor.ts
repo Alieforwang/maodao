@@ -15,11 +15,20 @@ export interface NotifyEvent {
   accountId: string;
   email: string;
   code: string | null;
+  display?: string | null;
   service: string;
   subject: string;
   from: string;
   messageId: string;
   receivedAt: number;
+  kind?: "code" | "maybe" | "link" | "mail";
+  candidates?: string[];
+  displays?: string[];
+  selectedIndex?: number;
+  verifyUrl?: string | null;
+  domain?: string;
+  text?: string;
+  html?: string;
 }
 
 export interface MonitorDeps {
@@ -313,19 +322,29 @@ export class MailMonitor {
       maxAgeMs: settings.maxAgeMinutes * 60_000,
       notifyAllMail: !settings.notifyOnlyCodes,
       alreadyNotified: this.deps.hasSeen(id),
+      senderPrefs: settings.senderPrefs,
     });
     this.deps.remember(id);
     if (decision.action !== "notify") return;
-    if (decision.reason === "code" && !decision.code) return;
+    if ((decision.reason === "code" || decision.reason === "maybe") && !decision.code) return;
     this.deps.onNotify({
       accountId: account.id,
       email: account.email,
       code: decision.code,
+      display: decision.display,
       service: decision.service,
       subject: subject || "（无标题）",
       from,
       messageId: id,
       receivedAt,
+      kind: decision.reason === "all-mail" ? "mail" : decision.reason,
+      candidates: decision.candidates.map((item) => item.code),
+      displays: decision.candidates.map((item) => item.display),
+      selectedIndex: decision.selectedIndex,
+      verifyUrl: decision.verifyUrl,
+      domain: decision.domain,
+      text,
+      html,
     });
     logInfo(decision.code ? "识别到验证码" : "新邮件通知", { accountId: account.id, length: decision.code?.length || 0 });
   }

@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { AccountStore } from "../src/main/store.js";
+import { DEFAULT_SETTINGS } from "../src/shared/types.js";
 import type { SecretBox } from "../src/shared/secrets.js";
 import { unavailableSecretBox } from "../src/shared/secrets.js";
 
@@ -132,5 +133,20 @@ describe("凭据存储", () => {
     expect(store.accounts[0].email).toBe("old@outlook.com");
     expect(store.accounts[0].loginName).toBeUndefined();
     expect(store.accounts).toHaveLength(1);
+  });
+
+  it("发件域名校正记在设置里，删掉账号或重新打开仍然在", () => {
+    const store = tempStore(hexBox());
+    const account = store.saveAccount({ provider: "qq", email: "a@qq.com", host: "imap.qq.com", port: 993, secret: "auth-code" });
+    store.updateSettings({ senderPrefs: { "shop.example": { muted: true, preferIndex: 1 } } });
+    store.deleteAccount(account.id);
+    expect(store.accounts).toHaveLength(0);
+    expect(store.settings.senderPrefs["shop.example"]).toEqual({ muted: true, preferIndex: 1 });
+    const directory = (store as unknown as { directory: string }).directory;
+    const reloaded = new AccountStore(directory, hexBox());
+    reloaded.load();
+    expect(reloaded.settings.senderPrefs["shop.example"]?.muted).toBe(true);
+    expect(reloaded.settings.senderPrefs["a@qq.com"]).toBeUndefined();
+    expect(reloaded.settings.openAtLogin).toBe(DEFAULT_SETTINGS.openAtLogin);
   });
 });

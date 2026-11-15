@@ -10,6 +10,7 @@ import { OutlookLogin, readJwtClaims, type OAuthEvent, type OAuthStartOptions, t
 import { chooseSavedMailbox, findDuplicateOutlook, mapOutlookFailure, readIdentity } from "../shared/outlookMailbox.js";
 import { PROVIDERS } from "../shared/presets.js";
 import { verifyOutlookMailbox } from "./outlookVerify.js";
+import { toRedactedFixture } from "../shared/fixtureExport.js";
 import { isCopyReason, type AccountStatus, type AppState, type HistoryItem, type ToastPayload } from "../shared/types.js";
 import { logInfo } from "./log.js";
 import { runHarness } from "./harness.js";
@@ -30,6 +31,7 @@ let tray: Tray | null = null;
 let quitting = false;
 let paused = false;
 let latestToast: ToastPayload | null = null;
+const toastMail = new Map<string, { from: string; subject: string; text: string; html?: string; recipient?: string; expected: string | null; kind: "code" | "link" | "none" }>();
 const toastQueue: ToastPayload[] = [];
 let toastOpen = false;
 let login: OutlookLogin | null = null;
@@ -124,7 +126,7 @@ function showToast(payload: ToastPayload): void {
   if (!toastWindow || toastWindow.isDestroyed()) {
     toastWindow = new BrowserWindow({
       width: 380,
-      height: 268,
+      height: 420,
       frame: false,
       transparent: true,
       alwaysOnTop: true,
@@ -158,7 +160,7 @@ function placeToast(): void {
   if (!toastWindow) return;
   const area = screen.getPrimaryDisplay().workArea;
   const width = 380;
-  const height = 268;
+  const height = 420;
   toastWindow.setBounds({
     x: Math.round(area.x + area.width - width - 12),
     y: Math.round(area.y + area.height - height - 12),
@@ -193,12 +195,20 @@ function deliver(event: NotifyEvent): void {
   const payload: ToastPayload = {
     id: event.messageId,
     code: event.code,
+    display: event.display,
     service: event.service,
     subject: event.subject,
     email: event.email,
     sound: store.settings.sound && !e2e,
     seconds: store.settings.notificationSeconds,
+    kind: event.kind,
+    candidates: event.candidates,
+    displays: event.displays,
+    selectedIndex: event.selectedIndex,
+    verifyUrl: event.verifyUrl,
+    domain: event.domain,
   };
+  toastMail.set(event.messageId, { from: event.from, subject: event.subject, text: event.text || "", html: event.html, recipient: event.email, expected: event.code, kind: event.kind === "link" ? "link" : event.code ? "code" : "none" });
   broadcast();
   refreshTrayMenu();
   if (toastOpen) toastQueue.push(payload);
@@ -351,6 +361,44 @@ function wireIpc(): void {
   ipcMain.handle("update-install", () => updater?.installNow());
   ipcMain.handle("toast-current", () => latestToast);
   ipcMain.handle("toast-dismiss", () => dismissToast());
+  ipcMain.handle("toast-mute", () => {
+    const domain = latestToast?.domain;
+    if (!domain) return;
+    const current = store.settings.senderPrefs || {};
+    store.updateSettings({ senderPrefs: { ...current, [domain]: { ...current[domain], muted: true } } });
+    dismissToast();
+    broadcast();
+  });
+  ipcMain.handle("toast-other", () => {
+    if (!latestToast?.candidates?.length || !latestToast.domain) return latestToast;
+    const count = latestToast.candidates.length;
+    const next = ((latestToast.selectedIndex || 0) + 1) % count;
+    const current = store.settings.senderPrefs || {};
+    store.updateSettings({ senderPrefs: { ...current, [latestToast.domain]: { ...current[latestToast.domain], preferIndex: next } } });
+    latestToast = {
+      ...latestToast,
+      selectedIndex: next,
+      code: latestToast.candidates[next],
+      display: latestToast.displays?.[next] || latestToast.candidates[next],
+    };
+    const history = store.history.find((item) => item.id === latestToast?.id);
+    if (history && latestToast.code) store.addHistory({ ...history, code: latestToast.code });
+    toastWindow?.webContents.send("toast", latestToast);
+    broadcast();
+    return latestToast;
+  });
+  ipcMain.handle("toast-open-link", () => {
+    const url = latestToast?.verifyUrl || "";
+    if (/^https:\/\//i.test(url)) void shell.openExternal(url);
+  });
+  ipcMain.handle("toast-export", () => {
+    const snap = latestToast ? toastMail.get(latestToast.id) : undefined;
+    if (!snap) return "";
+    const fixture = toRedactedFixture(snap);
+    const json = `${JSON.stringify(fixture, null, 2)}\n`;
+    clipboard.writeText(json);
+    return json;
+  });
   ipcMain.handle("oauth-cancel", () => {
     oauthGeneration += 1;
     const wait = mailboxWait;

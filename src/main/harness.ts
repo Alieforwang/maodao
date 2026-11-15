@@ -83,6 +83,9 @@ export async function runHarness(input: {
   });
   const toast = await input.waitToast();
   await waitFor(async () => (await toast.webContents.executeJavaScript("document.querySelector('.code')?.textContent || ''")) === code, 20_000, "通知里没有出现验证码");
+  const toastText = await toast.webContents.executeJavaScript("document.body.innerText") as string;
+  if (!toastText.includes("不是验证码") || !toastText.includes("导出脱敏样本")) throw new Error("通知上没有校正按钮");
+  if (toastText.includes("打开链接")) throw new Error("验证码通知被当成了链接邮件");
   const mid = input.clipboard.readText();
   if (mid !== before) throw new Error("通知弹出时剪贴板被改动了");
   if (shotDir) await shot(toast, path.join(shotDir, "toast.png"));

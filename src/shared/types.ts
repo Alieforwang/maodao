@@ -37,6 +37,13 @@ export interface Settings {
   oauthRedirectUri: string;
   /** 启动后以及每 6 小时检查 GitHub Releases。 */
   autoCheckUpdates: boolean;
+  /** 按发件域名记住的校正，不挂在某个账号上。 */
+  senderPrefs: Record<string, SenderPref>;
+}
+
+export interface SenderPref {
+  muted?: boolean;
+  preferIndex?: number;
 }
 
 export type UpdatePhase = "idle" | "checking" | "latest" | "available" | "downloading" | "downloaded" | "error";
@@ -98,12 +105,21 @@ export type CopyReason = "notification-click" | "copy-button" | "history" | "tra
 
 export interface ToastPayload {
   id: string;
+  /** Copy form, separators removed. */
   code: string | null;
+  /** Shown form, separators kept. */
+  display?: string | null;
   service: string;
   subject: string;
   email: string;
   sound: boolean;
   seconds: number;
+  kind?: "code" | "maybe" | "link" | "mail";
+  candidates?: string[];
+  displays?: string[];
+  selectedIndex?: number;
+  verifyUrl?: string | null;
+  domain?: string;
 }
 
 export interface AppState {
@@ -131,6 +147,7 @@ export const DEFAULT_SETTINGS: Settings = {
   oauthRedirectPort: 45832,
   oauthRedirectUri: "",
   autoCheckUpdates: true,
+  senderPrefs: {},
 };
 
 export const COPY_REASONS: readonly CopyReason[] = [

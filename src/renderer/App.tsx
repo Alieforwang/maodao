@@ -200,6 +200,24 @@ function Settings({ state }: { state: AppState }) {
         </div>
       </section>
       <section className="set-block">
+        <h2>发件域名</h2>
+        <div className="group">
+          {Object.keys(settings.senderPrefs || {}).length === 0 ? <p className="empty">还没有记过。通知上点「不是验证码」或「选另一个」之后，会记在这里，删掉账号也不会清。</p> : Object.entries(settings.senderPrefs).map(([domain, pref]) => (
+            <div className="set-row" key={domain}>
+              <div>
+                <h3>{domain}</h3>
+                <p>{pref.muted ? "不再弹出这个域名的验证码。" : `更倾向第 ${(pref.preferIndex || 0) + 1} 个候选。`}</p>
+              </div>
+              <button className="btn" type="button" onClick={() => {
+                const senderPrefs = { ...settings.senderPrefs };
+                delete senderPrefs[domain];
+                set({ senderPrefs });
+              }}>删除</button>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="set-block">
         <h2>更新</h2>
         <div className="group">
           <div className="set-row">
