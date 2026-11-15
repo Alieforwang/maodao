@@ -10,13 +10,17 @@ files:
 extraResources:
   - from: resources/icon.png
     to: icon.png
+  - from: resources/tray-16.png
+    to: tray-16.png
+  - from: resources/tray-32.png
+    to: tray-32.png
 asar: true
 publish:
   provider: github
   owner: Alieforwang
   repo: maodao
 win:
-  signAndEditExecutable: false
+  signAndEditExecutable: true
   target:
     - target: nsis
       arch:
@@ -28,6 +32,9 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   runAfterFinish: true
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+  installerHeaderIcon: resources/icon.ico
   include: build/installer.nsh
   shortcutName: 码到
   uninstallDisplayName: 码到

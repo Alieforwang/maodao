@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { ToastPayload } from "../shared/types";
+import brandIcon from "./brand/icon-32.png";
 
 export function ToastApp() {
   const api = window.madao;
@@ -41,7 +42,7 @@ export function ToastApp() {
       copy("notification-click");
     }}>
       <div className="toast-top">
-        <span className="mark sm app">码</span>
+        <img className="brand-icon" src={brandIcon} alt="" />
         <span className="name">码到</span>
         <span className="ago">刚刚</span>
         <button className="icon-btn" type="button" data-action="dismiss" aria-label="关闭通知" onClick={() => api?.dismissToast()}>

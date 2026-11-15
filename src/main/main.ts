@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, nativeTheme, screen, shell, Tray, Menu } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, nativeImage, nativeTheme, screen, shell, Tray, Menu } from "electron";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -118,6 +118,7 @@ function createMain(): BrowserWindow {
     frame: false,
     backgroundColor: theme() === "dark" ? "#202020" : "#f3f3f3",
     title: "码到",
+    icon: windowIcon(),
     webPreferences: {
       preload: preloadPath(),
       contextIsolation: true,
@@ -149,6 +150,7 @@ function showToast(payload: ToastPayload): void {
       focusable: true,
       show: false,
       backgroundColor: "#00000000",
+      icon: windowIcon(),
       webPreferences: {
         preload: preloadPath(),
         contextIsolation: true,
@@ -241,6 +243,7 @@ function toggleTrayWindow(): void {
       resizable: false,
       show: false,
       backgroundColor: "#00000000",
+      icon: windowIcon(),
       webPreferences: {
         preload: preloadPath(),
         contextIsolation: true,
@@ -277,19 +280,31 @@ function refreshTrayMenu(): void {
   tray.setToolTip(paused ? "码到 — 已暂停" : `码到 — ${listening} 个邮箱在监听`);
 }
 
-function iconFile(): string {
+function resourceFile(name: string): string {
   const candidates = [
-    path.join(process.resourcesPath, "icon.png"),
-    path.join(app.getAppPath(), "resources", "icon.png"),
-    path.join(__dirname, "../../resources/icon.png"),
+    path.join(process.resourcesPath, name),
+    path.join(app.getAppPath(), "resources", name),
+    path.join(__dirname, "../../resources", name),
   ];
   return candidates.find((item) => fs.existsSync(item)) || candidates[0];
 }
 
+function windowIcon(): string {
+  return resourceFile("icon.png");
+}
+
+function trayImage() {
+  const small = nativeImage.createFromPath(resourceFile("tray-16.png"));
+  const large = nativeImage.createFromPath(resourceFile("tray-32.png"));
+  if (!small.isEmpty() && !large.isEmpty()) {
+    small.addRepresentation({ scaleFactor: 2, width: 32, height: 32, buffer: large.toPNG() });
+  }
+  return small.isEmpty() ? large : small;
+}
+
 function createTray(): void {
-  const icon = iconFile();
   try {
-    tray = new Tray(icon);
+    tray = new Tray(trayImage());
   } catch (error) {
     logInfo("托盘图标不可用", { message: error instanceof Error ? error.message : "error" });
     return;

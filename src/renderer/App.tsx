@@ -5,6 +5,8 @@ import { GearIcon, HistoryIcon, InboxIcon, MailIcon } from "./icons";
 import { AllMail } from "./AllMail";
 import { formatWhen, statusOf } from "./format";
 import { AI_PRESETS } from "../shared/aiRecognize";
+import brandIcon from "./brand/icon-32.png";
+import brandLogo from "./brand/maodao-logo.png";
 import { outlookDisplay } from "../shared/outlookMailbox";
 import { OutlookAdd } from "./OutlookAdd";
 
@@ -46,7 +48,7 @@ export function App() {
     <div className="window">
       <div className="noise" />
       <header className="titlebar">
-        <div className="appname"><span className="mark sm app">码</span>码到</div>
+        <div className="appname"><img className="brand-icon" src={brandIcon} alt="" />码到</div>
         <div className="caption">
           <button type="button" aria-label="最小化" onClick={() => api.windowControl("minimize")}><svg viewBox="0 0 10 10"><path d="M1 5h8" fill="none" stroke="currentColor" strokeWidth="1" /></svg></button>
           <button type="button" aria-label="最大化" onClick={() => api.windowControl("maximize")}><svg viewBox="0 0 10 10"><rect x="1.2" y="1.2" width="7.6" height="7.6" fill="none" stroke="currentColor" strokeWidth="1" /></svg></button>
@@ -158,6 +160,7 @@ function Settings({ state }: { state: AppState }) {
     <div>
       <div className="page-head">
         <div>
+          <img className="brand-logo" src={brandLogo} alt="码到 MaoDao" />
           <h1>设置</h1>
           <p className="lede">这些开关只影响这台电脑上的码到。</p>
         </div>
