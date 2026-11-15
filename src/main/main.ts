@@ -124,7 +124,7 @@ function showToast(payload: ToastPayload): void {
   if (!toastWindow || toastWindow.isDestroyed()) {
     toastWindow = new BrowserWindow({
       width: 380,
-      height: 268,
+      height: 420,
       frame: false,
       transparent: true,
       alwaysOnTop: true,
@@ -158,7 +158,7 @@ function placeToast(): void {
   if (!toastWindow) return;
   const area = screen.getPrimaryDisplay().workArea;
   const width = 380;
-  const height = 268;
+  const height = 420;
   toastWindow.setBounds({
     x: Math.round(area.x + area.width - width - 12),
     y: Math.round(area.y + area.height - height - 12),
@@ -193,11 +193,20 @@ function deliver(event: NotifyEvent): void {
   const payload: ToastPayload = {
     id: event.messageId,
     code: event.code,
+    display: event.display,
     service: event.service,
     subject: event.subject,
     email: event.email,
     sound: store.settings.sound && !e2e,
     seconds: store.settings.notificationSeconds,
+    kind: event.kind,
+    confidence: event.confidence,
+    candidates: event.candidates,
+    displays: event.displays,
+    selectedIndex: event.selectedIndex,
+    verifyUrl: event.verifyUrl,
+    domain: event.domain,
+    redacted: event.redacted,
   };
   broadcast();
   refreshTrayMenu();
@@ -351,6 +360,41 @@ function wireIpc(): void {
   ipcMain.handle("update-install", () => updater?.installNow());
   ipcMain.handle("toast-current", () => latestToast);
   ipcMain.handle("toast-dismiss", () => dismissToast());
+  ipcMain.handle("toast-mute", () => {
+    const domain = latestToast?.domain;
+    if (!domain) return;
+    const current = store.settings.senderPrefs || {};
+    const senderPrefs = { ...current, [domain]: { ...current[domain], muted: true } };
+    store.updateSettings({ senderPrefs });
+    dismissToast();
+    broadcast();
+  });
+  ipcMain.handle("toast-other", () => {
+    if (!latestToast?.candidates?.length || !latestToast.domain) return latestToast;
+    const count = latestToast.candidates.length;
+    const next = ((latestToast.selectedIndex || 0) + 1) % count;
+    const currentPrefs = store.settings.senderPrefs || {};
+    const senderPrefs = { ...currentPrefs, [latestToast.domain]: { ...currentPrefs[latestToast.domain], preferIndex: next } };
+    store.updateSettings({ senderPrefs });
+    latestToast = {
+      ...latestToast,
+      selectedIndex: next,
+      code: latestToast.candidates[next],
+      display: latestToast.displays?.[next] || latestToast.candidates[next],
+    };
+    const current = store.history.find((item) => item.id === latestToast?.id);
+    if (current && latestToast.code) store.addHistory({ ...current, code: latestToast.code });
+    toastWindow?.webContents.send("toast", latestToast);
+    broadcast();
+    return latestToast;
+  });
+  ipcMain.handle("toast-open-link", () => {
+    const url = latestToast?.verifyUrl || "";
+    if (/^https:\/\//i.test(url)) void shell.openExternal(url);
+  });
+  ipcMain.handle("toast-export", () => {
+    if (latestToast?.redacted) clipboard.writeText(latestToast.redacted);
+  });
   ipcMain.handle("oauth-cancel", () => {
     oauthGeneration += 1;
     const wait = mailboxWait;

@@ -200,6 +200,33 @@ function Settings({ state }: { state: AppState }) {
         </div>
       </section>
       <section className="set-block">
+        <h2>识别校正</h2>
+        <div className="group">
+          <div className="set-row">
+            <div>
+              <h3>通知上的校正会记住发件域名</h3>
+              <p>「不是验证码」之后，这个域名不再弹出。「选另一个」会记住你更倾向的位置。</p>
+            </div>
+          </div>
+          {Object.entries(settings.senderPrefs || {}).filter(([, pref]) => pref.muted).map(([domain]) => (
+            <div className="set-row" key={domain}>
+              <div>
+                <h3>{domain}</h3>
+                <p>已不再提醒这个域名的验证码。</p>
+              </div>
+              <button className="btn" type="button" onClick={() => {
+                const senderPrefs = { ...(settings.senderPrefs || {}) };
+                const next = { ...senderPrefs[domain] };
+                delete next.muted;
+                if (!next.preferIndex && next.preferIndex !== 0) delete senderPrefs[domain];
+                else senderPrefs[domain] = next;
+                set({ senderPrefs });
+              }}>恢复提醒</button>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="set-block">
         <h2>更新</h2>
         <div className="group">
           <div className="set-row">

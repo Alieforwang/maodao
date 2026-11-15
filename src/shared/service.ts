@@ -8,6 +8,11 @@ const RULES: Array<[RegExp, string]> = [
   [/microsoft|outlook|hotmail|live\.com/, "Microsoft"],
   [/qq\.com|腾讯/, "腾讯"],
   [/163\.com|126\.com|yeah\.net|网易/, "网易"],
+  [/discord/, "Discord"],
+  [/openai/, "OpenAI"],
+  [/amazon/, "Amazon"],
+  [/paypal/, "PayPal"],
+  [/slack/, "Slack"],
 ];
 
 export function inferService(from: string, subject: string, body: string): string {
