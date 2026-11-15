@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   chooseSavedMailbox,
   findDuplicateOutlook,
+  mergeOutlookAccounts,
   imapLoginUser,
   mapOutlookFailure,
   outlookDisplay,
@@ -64,6 +65,16 @@ describe("Outlook 收信地址", () => {
     ];
     expect(findDuplicateOutlook(accounts, "wzs.example@outlook.com")?.id).toBe("a");
     expect(findDuplicateOutlook(accounts, "wzs.example@outlook.com", "a")).toBeUndefined();
+    const legacy = { id: "old", provider: "outlook", email: "example123@qq.com" };
+    const fresh = { id: "new", provider: "outlook", email: "wzs.example@outlook.com", loginName: "example123@qq.com" };
+    expect(findDuplicateOutlook([legacy], "wzs.example@outlook.com", undefined, "example123@qq.com")?.id).toBe("old");
+    const merged = mergeOutlookAccounts([legacy, fresh]);
+    expect(merged.accounts).toHaveLength(1);
+    const kept = merged.accounts[0] as { email: string; loginName?: string; id: string };
+    expect(kept.email).toBe("wzs.example@outlook.com");
+    expect(kept.loginName).toBe("example123@qq.com");
+    expect(kept.id).toBe("new");
+    expect(merged.reassign.map((item) => item.from)).toContain("old");
   });
 });
 

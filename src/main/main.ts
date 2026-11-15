@@ -351,6 +351,7 @@ function wireIpc(): void {
   ipcMain.handle("mail-rerecognize", async (_event, id: unknown) => {
     const mail = store.getMail(typeof id === "string" ? id : "");
     if (!mail) return null;
+    if (mail.source === "user") return mail;
     const found = await monitor.review(mail);
     const updated = store.recordMail({
       ...mail,
@@ -510,7 +511,7 @@ function wireIpc(): void {
     if (!account) return { ok: false as const, message: "找不到这个账号。" };
     const mailbox = String(email || "").trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mailbox)) return { ok: false as const, message: "邮箱地址不正确。" };
-    if (findDuplicateOutlook(store.accounts, mailbox, account.id)) return { ok: false as const, message: "该邮箱已添加" };
+    if (findDuplicateOutlook(store.accounts, mailbox, account.id, account.loginName)) return { ok: false as const, message: "该邮箱已添加" };
     const secret = store.getSecret(account.id);
     if (!secret?.accessToken) return { ok: false as const, message: "需要重新登录" };
     const result = await verifyOutlookMailbox({ user: mailbox, accessToken: secret.accessToken, host: account.host, port: account.port });
@@ -606,7 +607,7 @@ async function finishOutlookLogin(generation: number, tokens: OAuthTokens, optio
   }
   if (generation !== oauthGeneration) return;
   const saved = chooseSavedMailbox(plan, worked, explicit);
-  const duplicate = findDuplicateOutlook(store.accounts, saved.email, options?.replaceId);
+  const duplicate = findDuplicateOutlook(store.accounts, saved.email, options?.replaceId, saved.loginName);
   if (duplicate) {
     send({ type: "duplicate", email: duplicate.email, accountId: duplicate.id });
     return;

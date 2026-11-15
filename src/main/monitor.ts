@@ -1,5 +1,6 @@
 import { ImapFlow } from "imapflow";
-import { cachedOrThrottled, rememberAiCall, requestAiVerdict, shouldAskAi, statusLine, type AiMemory, type AiSettings, type AiVerdict } from "../shared/aiRecognize.js";
+import { aiNeedsKey, cachedOrThrottled, rememberAiCall, requestAiVerdict, shouldAskAi, statusLine, type AiMemory, type AiSettings, type AiVerdict } from "../shared/aiRecognize.js";
+import { senderDomain } from "../shared/extract.js";
 import { decideNotification, describeRecognition, type MailRecognition } from "../shared/decide.js";
 import { extractFromMail } from "../shared/extract.js";
 import { explainImapError, isAuthFailure } from "../shared/redact.js";
@@ -298,7 +299,7 @@ export class MailMonitor {
     }
   }
 
-  private async lookupAi(id: string, subject: string, from: string, text: string, html: string): Promise<AiVerdict | null> {
+  private async lookupAi(id: string, subject: string, from: string, text: string, html: string, recipient?: string): Promise<AiVerdict | null> {
     const settings = this.deps.getSettings();
     const rule = extractFromMail({ subject, body: text, html, from });
     const key = this.deps.getAiKey();
@@ -307,8 +308,11 @@ export class MailMonitor {
       baseUrl: settings.aiBaseUrl,
       model: settings.aiModel,
       everyMessage: settings.aiEveryMessage,
-      needsKey: settings.aiPreset !== "ollama",
+      needsKey: aiNeedsKey(settings.aiBaseUrl, settings.aiPreset),
     };
+    if (settings.aiEnabled && aiSettings.needsKey && !key) {
+      this.deps.onAiStatus?.("远程接口还没有密钥，这次用规则结果");
+    }
     if (!shouldAskAi(rule, aiSettings, Boolean(key))) return null;
     const gate = cachedOrThrottled(aiMemory, id, Date.now());
     if (gate.skip) {
@@ -322,6 +326,7 @@ export class MailMonitor {
       subject,
       from,
       text,
+      recipient,
     });
     const verdict = result.verdict?.accepted ? result.verdict : null;
     rememberAiCall(aiMemory, id, verdict, Date.now());
@@ -348,7 +353,11 @@ export class MailMonitor {
     }
     const id = messageId || `${account.id}:${message.uid}`;
     const settings = this.deps.getSettings();
-    const ai = await this.lookupAi(id, subject, from, text, html);
+    const now = Date.now();
+    const domain = senderDomain(from);
+    const muted = Boolean(settings.senderPrefs?.[domain]?.muted);
+    const outOfWindow = !receivedAt || receivedAt - now > 10 * 60 * 1000 || now - receivedAt > settings.maxAgeMinutes * 60_000;
+    const ai = muted || outOfWindow || this.deps.hasSeen(id) ? null : await this.lookupAi(id, subject, from, text, html, account.email);
     const decision = decideNotification({
       subject,
       from,

@@ -117,7 +117,7 @@ describe("验证码样本评估", () => {
   it("可选 AI 模式只接受原文里存在的码", () => {
     const missed = extract.extractFromMail({ subject: "hello", body: "please use 482913 today", from: "a@example.com" });
     const merged = mergeRuleAndAi(missed, { kind: "code", code: "482913", confidence: "high", reason: "mock", accepted: true });
-    expect(merged).toMatchObject({ code: "482913", confidence: "high" });
+    expect(merged).toMatchObject({ code: "482913", confidence: "medium" });
     const hallucinated = mergeRuleAndAi(missed, { kind: "code", code: "999999", confidence: "high", reason: "guess", accepted: false });
     expect(hallucinated.code).not.toBe("999999");
     if (process.env.MADAO_EVAL_AI === "1") {

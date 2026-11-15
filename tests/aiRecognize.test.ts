@@ -40,9 +40,18 @@ describe("AI 识别", () => {
   });
 
   it("发给模型的文本去掉邮箱和手机号，并截断", () => {
-    const text = buildAiUserText({ subject: "验证码", from: "Ada <ada@example.com>", text: `验证码 482913，手机 13800138000，邮箱 ada@example.com ${"x".repeat(3000)}` });
+    const text = buildAiUserText({
+      subject: "验证码",
+      from: "Ada <ada@example.com>",
+      recipient: "ada@example.com",
+      text: `验证码 482913，手机 13800138000，邮箱 ada@example.com，+1 (415) 555-0123，https://x.example/v?token=SECRETTOKEN&u=ada%40example.com Bearer abcdefTOKEN ${"x".repeat(3000)}`,
+    });
     expect(text).not.toContain("13800138000");
     expect(text).not.toContain("ada@example.com");
+    expect(text).not.toContain("ada%40example.com");
+    expect(text).not.toContain("555-0123");
+    expect(text).not.toContain("SECRETTOKEN");
+    expect(text).not.toContain("abcdefTOKEN");
     expect(text).toContain("482913");
     expect(text).toContain("From domain: example.com");
     expect(text.length).toBeLessThan(2300);
@@ -87,9 +96,9 @@ describe("AI 识别", () => {
     const rule = extractFromMail({ subject: base.subject, body: base.body, from: base.from });
     expect(rule.confidence).toBe("medium");
     const merged = mergeRuleAndAi(rule, { kind: "code", code: "882211", confidence: "high", reason: "原文里有", accepted: true });
-    expect(merged).toMatchObject({ code: "882211", confidence: "high" });
+    expect(merged).toMatchObject({ code: "882211", confidence: "medium" });
     const decision = decideNotification({ ...base, ai: { kind: "code", code: "882211", confidence: "high", reason: "原文里有", accepted: true } });
-    expect(decision).toMatchObject({ action: "notify", reason: "code", code: "882211" });
+    expect(decision).toMatchObject({ action: "notify", reason: "maybe", code: "882211" });
     const muted = decideNotification({ ...base, senderPrefs: { "example.com": { muted: true } }, ai: { kind: "code", code: "882211", confidence: "high", reason: "", accepted: true } });
     expect(muted).toMatchObject({ action: "skip", reason: "muted" });
     expect(shouldAskAi({ confidence: "high" }, { enabled: true, baseUrl: "http://localhost:11434/v1", model: "llama3.2", everyMessage: false, needsKey: false }, false)).toBe(false);
@@ -108,5 +117,7 @@ describe("AI 识别", () => {
   it("解释器拒绝不在原文里的码", () => {
     const parsed = interpretAiContent('{"kind":"code","code":"000000","confidence":"high","reason":""}', "验证码 482913");
     expect("accepted" in parsed && parsed.accepted).toBe(false);
+    const word = interpretAiContent('{"kind":"code","code":"use","confidence":"high","reason":""}', "Please use the app daily.");
+    expect("accepted" in word && word.accepted).toBe(false);
   });
 });

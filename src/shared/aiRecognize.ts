@@ -1,4 +1,5 @@
 import { senderDomain, type MailExtract } from "./extract.js";
+import { redactSensitive } from "./fixtureExport.js";
 
 export const AI_TIMEOUT_MS = 8_000;
 export const AI_TEXT_LIMIT = 2_000;
@@ -91,21 +92,31 @@ export function shouldAskAi(rule: { confidence: string }, settings: AiSettings, 
   return rule.confidence !== "high";
 }
 
-export function maskForModel(value: string): string {
-  return value
-    .replace(/(?:\+?86[-\s]?)?1[3-9]\d{9}/g, "[phone]")
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]");
+export function maskForModel(value: string, recipient?: string): string {
+  return redactSensitive(value, recipient);
 }
 
-export function buildAiUserText(input: { subject: string; from: string; text: string }): string {
-  const body = maskForModel(input.text).slice(0, AI_TEXT_LIMIT);
-  return `Subject: ${maskForModel(input.subject).slice(0, 300)}\nFrom domain: ${senderDomain(input.from) || "unknown"}\nText:\n${body}`;
+export function buildAiUserText(input: { subject: string; from: string; text: string; recipient?: string }): string {
+  const body = maskForModel(input.text, input.recipient).slice(0, AI_TEXT_LIMIT);
+  return `Subject: ${maskForModel(input.subject, input.recipient).slice(0, 300)}\nFrom domain: ${senderDomain(input.from) || "unknown"}\nText:\n${body}`;
 }
 
 export function codeAppearsInOriginal(code: string, original: string): boolean {
   const trimmed = code.trim();
-  if (!trimmed || trimmed.length > 32) return false;
-  return original.includes(trimmed);
+  if (!/^[A-Za-z0-9]{4,8}$/.test(trimmed)) return false;
+  const pattern = new RegExp(`(?<![A-Za-z0-9])${trimmed}(?![A-Za-z0-9])`);
+  return pattern.test(original);
+}
+
+export function aiNeedsKey(baseUrl: string, preset: string): boolean {
+  if (preset === "ollama") return false;
+  try {
+    const host = new URL(baseUrl).hostname;
+    if (host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1") return false;
+  } catch {
+    return true;
+  }
+  return true;
 }
 
 export function interpretAiContent(raw: string, original: string): AiVerdict | { failure: "invalid" } {
@@ -139,14 +150,14 @@ export function interpretAiContent(raw: string, original: string): AiVerdict | {
 export function mergeRuleAndAi(rule: MailExtract, ai: AiVerdict | null): MailExtract {
   if (!ai?.accepted) return rule;
   if (rule.confidence === "high") return rule;
-  if (ai.kind === "code" && ai.confidence === "high" && ai.code) {
-    const candidate = { code: ai.code, display: ai.code, keyword: "ai", score: 100, source: "body" as const };
+  if (ai.kind === "code" && ai.code && ai.confidence !== "low") {
+    const candidate = { code: ai.code, display: ai.code, keyword: "ai", score: 60, source: "body" as const };
     return {
       ...rule,
       code: ai.code,
       display: ai.code,
       keyword: "ai",
-      confidence: "high",
+      confidence: "medium",
       kind: "code",
       candidates: [candidate, ...rule.candidates.filter((item) => item.code !== ai.code)].slice(0, 3),
     };
@@ -185,6 +196,7 @@ export async function requestAiVerdict(input: {
   subject: string;
   from: string;
   text: string;
+  recipient?: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
 }): Promise<{ verdict: AiVerdict | null; failure?: AiFailure; detail?: string }> {

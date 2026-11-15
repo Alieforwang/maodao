@@ -67,9 +67,85 @@ export function imapLoginUser(account: { email: string; imapUser?: string }): st
   return account.imapUser?.trim() || account.email;
 }
 
-export function findDuplicateOutlook<T extends { id: string; provider: string; email: string }>(accounts: T[], mailbox: string, exceptId?: string): T | undefined {
-  const target = normalizeEmail(mailbox);
-  return accounts.find((account) => account.provider === "outlook" && account.id !== exceptId && normalizeEmail(account.email) === target);
+export function outlookIdentityKeys(account: { email?: string; loginName?: string; imapUser?: string }): string[] {
+  const keys = [account.email, account.loginName, account.imapUser]
+    .map((value) => normalizeEmail(value || ""))
+    .filter((value) => value.includes("@"));
+  return [...new Set(keys)];
+}
+
+export function findDuplicateOutlook<T extends { id: string; provider: string; email: string; loginName?: string; imapUser?: string }>(
+  accounts: T[],
+  mailbox: string,
+  exceptId?: string,
+  loginName?: string,
+): T | undefined {
+  const wanted = new Set(outlookIdentityKeys({ email: mailbox, loginName }));
+  if (!wanted.size) return undefined;
+  return accounts.find((account) => {
+    if (account.provider !== "outlook" || account.id === exceptId) return false;
+    return outlookIdentityKeys(account).some((key) => wanted.has(key));
+  });
+}
+
+export function mergeOutlookAccounts<T extends { id: string; provider: string; email: string; loginName?: string; imapUser?: string; alias?: string; secretUpdatedAt?: number; enabled?: boolean }>(accounts: T[]): { accounts: T[]; reassign: Array<{ from: string; to: string }> } {
+  const outlook = accounts.filter((account) => account.provider === "outlook");
+  const others = accounts.filter((account) => account.provider !== "outlook");
+  const parent = new Map<string, string>();
+  const find = (id: string): string => {
+    const next = parent.get(id) || id;
+    if (next === id) return id;
+    const root = find(next);
+    parent.set(id, root);
+    return root;
+  };
+  const union = (left: string, right: string) => {
+    const a = find(left);
+    const b = find(right);
+    if (a !== b) parent.set(a, b);
+  };
+  for (const account of outlook) parent.set(account.id, account.id);
+  const byKey = new Map<string, string>();
+  for (const account of outlook) {
+    for (const key of outlookIdentityKeys(account)) {
+      const previous = byKey.get(key);
+      if (previous) union(previous, account.id);
+      else byKey.set(key, account.id);
+    }
+  }
+  const groups = new Map<string, T[]>();
+  for (const account of outlook) {
+    const root = find(account.id);
+    groups.set(root, [...(groups.get(root) || []), account]);
+  }
+  const reassign: Array<{ from: string; to: string }> = [];
+  const merged: T[] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      merged.push(group[0]);
+      continue;
+    }
+    const survivor = [...group].sort((a, b) => outlookRank(b) - outlookRank(a))[0];
+    const email = group.map((account) => account.email).find((value) => isMicrosoftMailAddress(value)) || survivor.email;
+    const loginName = group.flatMap((account) => [account.loginName, account.email]).find((value) => value && normalizeEmail(value) !== normalizeEmail(email));
+    const imapUser = group.map((account) => account.imapUser).find((value) => value && normalizeEmail(value) !== normalizeEmail(email));
+    merged.push({
+      ...survivor,
+      email,
+      loginName,
+      imapUser,
+      alias: survivor.alias || group.map((account) => account.alias).find(Boolean),
+      secretUpdatedAt: Math.max(...group.map((account) => account.secretUpdatedAt || 0)),
+    });
+    for (const other of group) {
+      if (other.id !== survivor.id) reassign.push({ from: other.id, to: survivor.id });
+    }
+  }
+  return { accounts: [...others, ...merged], reassign };
+}
+
+function outlookRank(account: { email: string; loginName?: string; secretUpdatedAt?: number }): number {
+  return (isMicrosoftMailAddress(account.email) ? 1e15 : 0) + (account.loginName ? 1e12 : 0) + (account.secretUpdatedAt || 0);
 }
 
 export type OutlookFailureCode = "cancelled" | "window" | "device-expired" | "imap" | "network" | "custom-client" | "unknown";

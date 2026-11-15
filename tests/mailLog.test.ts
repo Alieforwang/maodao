@@ -80,7 +80,7 @@ describe("全部邮件", () => {
     expect(store.settings.senderPrefs["shop.example"]).toMatchObject({ muted: false, preferIndex: 1 });
     store.deleteAccount(account.id);
     expect(store.settings.senderPrefs["shop.example"]?.preferIndex).toBe(1);
-    expect(store.getMail("m1")?.code).toBe("222222");
+    expect(store.getMail("m1")).toBeUndefined();
     store.clearMails();
     expect(store.mailIndex).toEqual([]);
     const reloaded = new AccountStore(directory, unavailableSecretBox());

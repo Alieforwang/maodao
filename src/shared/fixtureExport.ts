@@ -39,15 +39,29 @@ export function toRedactedFixture(input: {
 
 export function redactSensitive(value: string, recipient?: string): string {
   let text = value;
-  if (recipient) {
-    const escaped = recipient.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    text = text.replace(new RegExp(escaped, "gi"), "recipient@example.com");
+  for (const form of recipientForms(recipient)) {
+    text = text.split(form).join("recipient@example.com");
   }
   text = text.replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, "token");
-  text = text.replace(/\b(?:access_token|refresh_token|bearer)\b[\s:=]+[\w.-]+/gi, "token");
-  text = text.replace(/(?:\+?86[-\s]?)?1[3-9]\d{9}/g, "1**********");
-  text = text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "name@example.com");
+  text = text.replace(/\b(?:access_token|refresh_token|id_token|bearer|authorization)\b[\s:=]+[\w.~+/-]+/gi, "token");
+  text = text.replace(/[A-Z0-9._%+-]+(?:@|%40)[A-Z0-9.-]+(?:\.|%2E)[A-Z]{2,}/gi, "name@example.com");
+  text = text.replace(/(?:\+|00)\d{1,3}[\s().-]*\d(?:[\s().-]*\d){6,14}/g, "[phone]");
+  text = text.replace(/(?:\+?86[-\s]?)?1[3-9]\d{9}/g, "[phone]");
+  text = text.replace(/https?:\/\/[^\s<>"')]+/gi, (url) => {
+    try {
+      return new URL(url).origin;
+    } catch {
+      return "https://link.example";
+    }
+  });
   return text;
+}
+
+function recipientForms(recipient?: string): string[] {
+  const value = recipient?.trim();
+  if (!value) return [];
+  const forms = new Set<string>([value, value.toLowerCase(), encodeURIComponent(value), encodeURIComponent(value.toLowerCase())]);
+  return [...forms].filter(Boolean).sort((a, b) => b.length - a.length);
 }
 
 function guessLang(text: string): string {

@@ -23,4 +23,28 @@ describe("脱敏样本", () => {
     expect(fixture.text).toContain("738291");
     expect(fixture.lang).toBe("zh-Hans");
   });
+
+  it("去掉链接令牌、编码后的邮箱、跟踪像素和国际电话", () => {
+    const text = [
+      "Please verify your email: https://link.example/verify?token=abcDEF123456xyz",
+      "pixel https://px.example/open.gif?rcpt=ada%40example.com",
+      "path https://link.example/v/0123456789abcdef0123456789abcdef",
+      "phone +1 (415) 555-0123",
+    ].join("\n");
+    const fixture = toRedactedFixture({
+      from: "Verify <notify@link.example>",
+      subject: "Verify your email",
+      text,
+      expected: null,
+      kind: "link",
+      recipient: "ada@example.com",
+    });
+    const dumped = JSON.stringify(fixture);
+    expect(dumped).not.toContain("abcDEF123456xyz");
+    expect(dumped).not.toContain("ada%40example.com");
+    expect(dumped).not.toContain("ada@example.com");
+    expect(dumped).not.toContain("0123456789abcdef0123456789abcdef");
+    expect(dumped).not.toContain("555-0123");
+    expect(dumped).toContain("https://link.example");
+  });
 });

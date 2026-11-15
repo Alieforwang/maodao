@@ -12,6 +12,7 @@ import {
   type StoredMail,
 } from "../shared/types.js";
 import { applyCorrection, correctionPreference, pruneMails, sanitizeMailText } from "../shared/mailLog.js";
+import { mergeOutlookAccounts } from "../shared/outlookMailbox.js";
 import { PROVIDERS, normalizePassword } from "../shared/presets.js";
 
 interface ConfigFile {
@@ -34,6 +35,7 @@ export class AccountStore {
   private config: ConfigFile = structuredClone(EMPTY);
   private secrets = new Map<string, SecretPayload>();
   private mails: StoredMail[] = [];
+  private pendingOutlookMoves: Array<{ from: string; to: string }> = [];
 
   constructor(
     private readonly directory: string,
@@ -56,8 +58,20 @@ export class AccountStore {
         history: (parsed.history || []).slice(0, 20),
         seen: (parsed.seen || []).slice(-300),
       };
+      const merged = mergeOutlookAccounts(this.config.accounts);
+      if (merged.reassign.length) {
+        const moved = new Map(merged.reassign.map((item) => [item.from, item.to]));
+        this.config.accounts = merged.accounts;
+        this.config.history = this.config.history.map((item) => ({ ...item, accountId: moved.get(item.accountId) || item.accountId }));
+        this.pendingOutlookMoves = merged.reassign;
+        this.persistConfig();
+      }
     }
     this.mails = this.readMails();
+    if (this.pendingOutlookMoves.length) {
+      const moved = new Map(this.pendingOutlookMoves.map((item) => [item.from, item.to]));
+      this.mails = this.mails.map((mail) => ({ ...mail, accountId: moved.get(mail.accountId) || mail.accountId }));
+    }
     this.mails = this.prune(this.mails);
     this.writeMails();
     const secretsPath = this.secretsFile();
@@ -70,7 +84,13 @@ export class AccountStore {
           this.secrets.delete(id);
         }
       }
+      for (const move of this.pendingOutlookMoves) {
+        if (!this.secrets.has(move.to) && this.secrets.has(move.from)) this.secrets.set(move.to, this.secrets.get(move.from)!);
+        this.secrets.delete(move.from);
+      }
+      if (this.pendingOutlookMoves.length) this.persistSecrets();
     }
+    this.pendingOutlookMoves = [];
   }
 
   get settings(): Settings {
@@ -96,6 +116,10 @@ export class AccountStore {
   updateSettings(patch: Partial<Settings>): Settings {
     this.config.settings = { ...this.config.settings, ...patch };
     this.persistConfig();
+    if ("mailRetentionDays" in patch || "mailRetentionCount" in patch) {
+      this.mails = this.prune(this.mails);
+      this.writeMails();
+    }
     return this.config.settings;
   }
 
@@ -199,8 +223,10 @@ export class AccountStore {
   deleteAccount(id: string): void {
     this.config.accounts = this.config.accounts.filter((item) => item.id !== id);
     this.secrets.delete(id);
+    this.mails = this.mails.filter((mail) => mail.accountId !== id);
     this.persistConfig();
     this.persistSecrets();
+    this.writeMails();
   }
 
   saveAccount(draft: AccountDraft): Account {

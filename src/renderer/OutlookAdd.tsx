@@ -19,7 +19,7 @@ export function OutlookAdd({ account, settings, autoLogin, onClose }: { account?
   const [replaceId, setReplaceId] = useState(account?.id);
   const [progress, setProgress] = useState("");
   const [failure, setFailure] = useState<OutlookFailure | null>(null);
-  const [device, setDevice] = useState<{ userCode: string; expiresIn: number } | null>(null);
+  const [device, setDevice] = useState<{ userCode: string; expiresIn: number; verificationUri: string } | null>(null);
   const [fixNote, setFixNote] = useState("");
 
   const begin = (mode: "pkce" | "device", nextReplaceId = replaceId) => {
@@ -31,7 +31,7 @@ export function OutlookAdd({ account, settings, autoLogin, onClose }: { account?
 
   useEffect(() => api.onOAuth((event) => {
     if (event.type === "device") {
-      setDevice({ userCode: event.userCode, expiresIn: event.expiresIn });
+      setDevice({ userCode: event.userCode, expiresIn: event.expiresIn, verificationUri: event.verificationUri });
       setStep("device");
     } else if (event.type === "progress") {
       setProgress(event.message);
@@ -92,7 +92,7 @@ export function OutlookAdd({ account, settings, autoLogin, onClose }: { account?
           )}
         </>
       )}
-      {step === "device" && device && <DeviceCode userCode={device.userCode} expiresIn={device.expiresIn} />}
+      {step === "device" && device && <DeviceCode userCode={device.userCode} expiresIn={device.expiresIn} verificationUri={device.verificationUri} />}
       {step === "working" && <p className="hint">{progress || "正在登录…"}</p>}
       {step === "mailbox" && (
         <>
@@ -181,7 +181,7 @@ export function OutlookAdd({ account, settings, autoLogin, onClose }: { account?
   );
 }
 
-function DeviceCode({ userCode, expiresIn }: { userCode: string; expiresIn: number }) {
+function DeviceCode({ userCode, expiresIn, verificationUri }: { userCode: string; expiresIn: number; verificationUri: string }) {
   const api = window.madao!;
   const [left, setLeft] = useState(expiresIn);
   useEffect(() => {
@@ -197,7 +197,11 @@ function DeviceCode({ userCode, expiresIn }: { userCode: string; expiresIn: numb
     <div>
       <div className="device-code">{userCode}</div>
       <p className="hint">剩余 {minutes}:{seconds}。登录完成后会自动连接邮箱。</p>
-      <button className="btn-primary" type="button" onClick={() => { void api.copyText(userCode); void api.openExternal("https://microsoft.com/link"); }}>复制代码并打开 microsoft.com/link</button>
+      <button className="btn-primary" type="button" onClick={() => {
+        const target = /^https:\/\//i.test(verificationUri) ? verificationUri : "https://microsoft.com/link";
+        void api.copyText(userCode);
+        void api.openExternal(target);
+      }}>{/^https:\/\/microsoft\.com\/link/i.test(verificationUri) ? "复制代码并打开 microsoft.com/link" : "复制代码并打开登录页"}</button>
     </div>
   );
 }
