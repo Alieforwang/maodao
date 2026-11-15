@@ -60,6 +60,16 @@ describe("自动更新", () => {
     expect(config).toMatch(/owner:\s*Alieforwang/);
     expect(config).toMatch(/repo:\s*maodao/);
     expect(config).toMatch(/artifactName:\s*MaoDao-Setup-\$\{version\}-x64\.\$\{ext\}/);
+    expect(config).toMatch(/appId:\s*app\.madao\.desktop/);
+    expect(config).toMatch(/productName:\s*码到/);
+    expect(config).toMatch(/executableName:\s*MaoDao/);
+    expect(config).toMatch(/oneClick:\s*false/);
+    expect(config).toMatch(/perMachine:\s*false/);
+    expect(config).toMatch(/include:\s*build\/installer\.nsh/);
+    const installer = fs.readFileSync("build/installer.nsh", "utf8");
+    expect(installer).toContain("customCheckAppRunning");
+    expect(installer).toContain("MaoDao.exe");
+    expect(installer).toContain("码到.exe");
     expect(config).not.toMatch(/\btoken\s*:/i);
     expect(config).not.toMatch(/ghp_|github_pat_|privateKey/i);
   });

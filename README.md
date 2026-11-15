@@ -6,7 +6,7 @@
 
 ## 安装
 
-发布包是 Windows x64 的 NSIS 安装程序：`MaoDao-Setup-1.0.3-x64.exe`。
+发布包是 Windows x64 的 NSIS 安装程序：`MaoDao-Setup-1.0.4-x64.exe`。
 
 1.0.1 及更早的安装包没有自动更新。需要先手动安装一次 1.0.2 或更新版本，之后才会从 GitHub Releases 检查新版本。
 

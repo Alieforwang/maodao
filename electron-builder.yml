@@ -1,5 +1,6 @@
 appId: app.madao.desktop
 productName: 码到
+executableName: MaoDao
 copyright: Copyright © 2026 码到
 directories:
   output: release
@@ -26,6 +27,8 @@ nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+  runAfterFinish: true
+  include: build/installer.nsh
   shortcutName: 码到
   uninstallDisplayName: 码到
   installerLanguages:

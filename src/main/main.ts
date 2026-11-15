@@ -17,6 +17,7 @@ import { INITIAL_UPDATE_STATUS } from "../shared/updates.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.MADAO_DEV === "1";
 const e2e = process.env.MADAO_E2E === "1";
+const smoke = process.env.MADAO_SMOKE === "1";
 if (e2e) app.setPath("userData", process.env.MADAO_USER_DATA || path.join(os.tmpdir(), "madao-e2e"));
 
 let mainWindow: BrowserWindow | null = null;
@@ -394,7 +395,9 @@ app.on("before-quit", () => {
   monitor?.stopAll();
 });
 
-if (gotLock) app.whenReady().then(async () => {
+if (smoke) {
+  app.whenReady().then(() => app.exit(0));
+} else if (gotLock) app.whenReady().then(async () => {
   app.setAppUserModelId("app.madao.desktop");
   store = new AccountStore(path.join(app.getPath("userData"), "madao"), createSecretBox());
   monitor = createMonitor();
