@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Account, AccountDraft, AppState, ProviderId } from "../shared/types";
-import { PROVIDER_LIST, PROVIDERS } from "../shared/presets";
+import { PROVIDER_LIST, PROVIDERS, stripCredentialWhitespace } from "../shared/presets";
 import { GearIcon, HistoryIcon, MailIcon } from "./icons";
 import { formatWhen, statusOf } from "./format";
 
@@ -291,7 +291,20 @@ function AccountDialog({ state, dialog, message, setMessage, onClose }: { state:
           {preset.authMethod === "password" && (
             <div className="field wide">
               <label htmlFor="secret">{preset.secretLabel}</label>
-              <input id="secret" type="password" value={secret} placeholder={dialog.account ? "留空则保持原来的授权码" : "不是邮箱登录密码"} onChange={(event) => setSecret(event.target.value)} />
+              <input
+                id="secret"
+                type="password"
+                value={secret}
+                placeholder={dialog.account ? "留空则保持原来的授权码" : "不是邮箱登录密码"}
+                onChange={(event) => setSecret(stripCredentialWhitespace(event.target.value))}
+                onPaste={(event) => {
+                  event.preventDefault();
+                  const pasted = stripCredentialWhitespace(event.clipboardData.getData("text"));
+                  const input = event.currentTarget;
+                  const next = stripCredentialWhitespace(`${input.value.slice(0, input.selectionStart ?? 0)}${pasted}${input.value.slice(input.selectionEnd ?? input.value.length)}`);
+                  setSecret(next);
+                }}
+              />
             </div>
           )}
           <div className="field">

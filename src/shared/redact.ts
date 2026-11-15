@@ -1,3 +1,5 @@
+import type { ProviderId } from "./types.js";
+
 const SECRET_KEYS = /password|pass|secret|token|authorization|auth|cookie|refresh|access/i;
 
 export function redact(value: unknown): unknown {
@@ -10,8 +12,11 @@ export function redact(value: unknown): unknown {
   return output;
 }
 
-export function explainImapError(error: unknown): string {
+export function explainImapError(error: unknown, provider?: ProviderId): string {
   const message = error instanceof Error ? error.message : String(error);
+  if (provider === "gmail" && isAuthFailure(error)) {
+    return "Gmail 登录失败。可能是应用专用密码不正确，或 Gmail 未开启 IMAP。";
+  }
   if (/unsafe login/i.test(message)) return "网易拒绝了登录。请确认已开启 IMAP，并使用客户端授权码。";
   if (/application-specific password/i.test(message)) return "Gmail 需要应用专用密码，不能填账号密码。";
   if (/authentication|auth|login failed|invalid credentials|AUTHENTICATIONFAILED/i.test(message)) return "登录失败，请检查账号和授权码。";

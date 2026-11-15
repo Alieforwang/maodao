@@ -1,6 +1,6 @@
 {
   "name": "madao",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "码到 — 常驻系统托盘的邮箱验证码提醒",
   "author": "码到",

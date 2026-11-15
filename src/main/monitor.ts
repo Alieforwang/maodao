@@ -2,7 +2,7 @@ import { ImapFlow } from "imapflow";
 import { decideNotification } from "../shared/decide.js";
 import { explainImapError, isAuthFailure } from "../shared/redact.js";
 import { parseRawMail } from "../shared/mail.js";
-import { needsImapId } from "../shared/presets.js";
+import { needsImapId, normalizePassword } from "../shared/presets.js";
 import type { Account, AccountStatus, SecretPayload, Settings } from "../shared/types.js";
 import { refreshOutlookToken } from "./oauth.js";
 import { logInfo } from "./log.js";
@@ -42,7 +42,7 @@ export function buildImapOptions(account: Account, secret: SecretPayload) {
     doSTARTTLS: account.secure ? undefined : false,
     auth: secret.accessToken
       ? { user: account.email, accessToken: secret.accessToken }
-      : { user: account.email, pass: secret.password || "" },
+      : { user: account.email, pass: normalizePassword(account.provider, secret.password || "") },
     clientInfo: {
       name: "Madao",
       version: "1.0.0",
@@ -189,7 +189,7 @@ export class MailMonitor {
       try { client.close(); } catch { /* already closed */ }
       if (signal.aborted) return;
       if (isAuthFailure(error)) {
-        this.deps.onStatus({ accountId: account.id, state: "auth_failed", detail: explainImapError(error) });
+        this.deps.onStatus({ accountId: account.id, state: "auth_failed", detail: explainImapError(error, account.provider) });
         logInfo("登录失败", { accountId: account.id, host: account.host });
         return;
       }

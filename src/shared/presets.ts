@@ -101,8 +101,14 @@ export function needsImapId(host: string): boolean {
   return /(^|\.)(163\.com|126\.com|yeah\.net)$/i.test(host.trim());
 }
 
+const APP_PASSWORD_PROVIDERS = new Set<ProviderId>(["gmail", "qq", "netease"]);
+
+/** Remove every whitespace character, including full-width spaces and line breaks. */
+export function stripCredentialWhitespace(value: string): string {
+  return value.replace(/[\s\u3000\u00a0\u2000-\u200b\u202f\u205f\ufeff]+/g, "");
+}
+
 export function normalizePassword(provider: ProviderId, password: string): string {
-  const trimmed = password.trim();
-  if (provider === "gmail") return trimmed.replace(/\s+/g, "");
-  return trimmed;
+  if (APP_PASSWORD_PROVIDERS.has(provider)) return stripCredentialWhitespace(password);
+  return password.trim();
 }

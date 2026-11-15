@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildImapOptions, forceImapId } from "../src/main/monitor.js";
 import { needsImapId, normalizePassword } from "../src/shared/presets.js";
+import { explainImapError } from "../src/shared/redact.js";
 import { readJwtEmail } from "../src/main/oauth.js";
 import type { Account } from "../src/shared/types.js";
 
@@ -20,8 +21,25 @@ describe("邮箱预设", () => {
     expect(client.capabilities.has("IDLE")).toBe(false);
   });
 
-  it("Gmail 应用专用密码去掉空格，连接选项不记录日志", () => {
+  it("Gmail、QQ、网易凭证去掉全部空白，连接选项不记录日志", () => {
     expect(normalizePassword("gmail", "abcd efgh ijkl mnop")).toBe("abcdefghijklmnop");
+    expect(normalizePassword("gmail", "aaaa\nbbbb\r\ncccc\u3000dddd")).toBe("aaaabbbbccccdddd");
+    expect(normalizePassword("qq", "qqqq wwww\neeee\u3000rrrr")).toBe("qqqqwwwweeeerrrr");
+    expect(normalizePassword("netease", "1633\t1633 1633")).toBe("163316331633");
+    const spaced = "aaaa bbbb\u3000cccc";
+    const gmailAccount: Account = {
+      id: "1",
+      provider: "gmail",
+      email: "a@gmail.com",
+      host: "imap.gmail.com",
+      port: 993,
+      secure: true,
+      authMethod: "password",
+      enabled: true,
+      secretUpdatedAt: 1,
+      secretPersisted: true,
+    };
+    expect(buildImapOptions(gmailAccount, { password: spaced }).auth).toEqual({ user: "a@gmail.com", pass: "aaaabbbbcccc" });
     const account: Account = {
       id: "1",
       provider: "gmail",
@@ -57,6 +75,12 @@ describe("邮箱预设", () => {
     const options = buildImapOptions(account, { accessToken: "token-value" });
     expect(options.auth).toEqual({ user: "a@outlook.com", accessToken: "token-value" });
     expect(JSON.stringify(options)).not.toContain("pass");
+  });
+
+  it("Gmail 登录失败时说明可能是应用专用密码或未开启 IMAP", () => {
+    const error = Object.assign(new Error("Invalid credentials"), { authenticationFailed: true });
+    expect(explainImapError(error, "gmail")).toBe("Gmail 登录失败。可能是应用专用密码不正确，或 Gmail 未开启 IMAP。");
+    expect(explainImapError(new Error("connection reset"), "gmail")).toBe("连接中断，将自动重试。");
   });
 
   it("从身份令牌里读取邮箱", () => {
