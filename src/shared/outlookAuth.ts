@@ -116,6 +116,23 @@ export function buildRefreshRequest(input: { clientId: string; redirectUri: stri
   });
 }
 
+/** Electron webRequest match patterns must be scheme://host/path and the path cannot be empty. */
+export function assertElectronUrlPattern(pattern: string): void {
+  const match = /^([a-zA-Z*][a-zA-Z0-9+.-]*|\*):\/\/([^/]*)(\/.*)?$/.exec(pattern);
+  if (!match?.[3]) {
+    throw new Error(`Invalid url pattern ${pattern}: Empty path.`);
+  }
+}
+
+export function webRequestPatterns(redirectUri: string): string[] {
+  const url = new URL(redirectUri);
+  const origin = `${url.protocol}//${url.host}`;
+  const patterns = [`${origin}/*`];
+  if (!url.port) patterns.push(`${origin}/?*`);
+  for (const pattern of patterns) assertElectronUrlPattern(pattern);
+  return patterns;
+}
+
 function readUrl(value: string): URL | null {
   try {
     return new URL(value);

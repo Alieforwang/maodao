@@ -41,4 +41,27 @@ describe("打包后的主进程可以在 ESM 下加载", () => {
     expect(output).not.toContain("Named export");
     expect(launched.status, output).toBe(0);
   }, 40_000);
+
+  it("登录窗口可以注册 https://localhost/* 拦截而不抛错", async () => {
+    const outfile = path.join(os.tmpdir(), "madao-outlook-filter.mjs");
+    await build({
+      entryPoints: ["src/main/smokeOutlookFilter.ts"],
+      bundle: true,
+      platform: "node",
+      format: "esm",
+      outfile,
+      external: ["electron"],
+      packages: "external",
+    });
+    const electron = path.join(process.cwd(), "node_modules/electron/dist/electron");
+    const launched = spawnSync("xvfb-run", ["-a", electron, "--no-sandbox", outfile], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      timeout: 25_000,
+    });
+    const output = `${launched.stdout || ""}\n${launched.stderr || ""}`;
+    expect(output).not.toContain("Empty path");
+    expect(output).not.toContain("Invalid url pattern");
+    expect(launched.status, output).toBe(0);
+  }, 40_000);
 });

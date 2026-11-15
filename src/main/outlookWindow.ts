@@ -1,5 +1,5 @@
 import { BrowserWindow } from "electron";
-import { isRedirectNavigation, parseOAuthCallback } from "../shared/outlookAuth.js";
+import { isRedirectNavigation, parseOAuthCallback, webRequestPatterns } from "../shared/outlookAuth.js";
 
 export function openEmbeddedOutlookLogin(authorizeUrl: string, redirectUri: string): { result: Promise<string>; close: () => void } {
   let win: BrowserWindow | null = null;
@@ -38,14 +38,22 @@ export function openEmbeddedOutlookLogin(authorizeUrl: string, redirectUri: stri
       return false;
     };
     const session = win.webContents.session;
-    const filter = { urls: ["https://localhost/*", "https://localhost"] };
-    session.webRequest.onBeforeRequest(filter, (details, callback) => {
-      if (consider(details.url)) {
-        callback({ cancel: true });
-        return;
-      }
-      callback({});
-    });
+    let filter: { urls: string[] } | null = null;
+    let filterError = "";
+    try {
+      filter = { urls: webRequestPatterns(redirectUri) };
+      session.webRequest.onBeforeRequest(filter, (details, callback) => {
+        if (consider(details.url)) {
+          callback({ cancel: true });
+          return;
+        }
+        callback({});
+      });
+    } catch (error) {
+      filter = null;
+      filterError = error instanceof Error ? error.message : String(error);
+      console.error(`[码到] 登录回调拦截未挂上：${filterError}`);
+    }
     win.webContents.on("will-redirect", (event, url) => {
       if (consider(url)) event.preventDefault();
     });
@@ -60,11 +68,18 @@ export function openEmbeddedOutlookLogin(authorizeUrl: string, redirectUri: stri
     const timer = setTimeout(() => fail(new Error("登录超时。")), 5 * 60 * 1000);
     const cleanup = () => {
       clearTimeout(timer);
-      session.webRequest.onBeforeRequest(filter, null);
+      if (filter) {
+        try {
+          session.webRequest.onBeforeRequest(filter, null);
+        } catch {
+          /* listener is already gone */
+        }
+      }
     };
     void win.loadURL(authorizeUrl).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
-      if (!settled) fail(new Error(message));
+      const detail = filterError ? `${message}（回调拦截：${filterError}）` : message;
+      if (!settled) fail(new Error(detail));
     });
   });
   return {

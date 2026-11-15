@@ -9,6 +9,8 @@ import {
   isRedirectNavigation,
   parseOAuthCallback,
   resolveOutlookAuth,
+  assertElectronUrlPattern,
+  webRequestPatterns,
 } from "../src/shared/outlookAuth.js";
 import { OUTLOOK_SCOPES } from "../src/main/oauth.js";
 
@@ -43,6 +45,17 @@ describe("Outlook 登录配置", () => {
     });
     expect(config.mode).toBe("embedded");
     expect(config.redirectUri).toBe("https://localhost");
+  });
+});
+
+describe("Outlook webRequest 地址规则", () => {
+  it("https://localhost 必须带非空路径，空路径会被 Electron 拒绝", () => {
+    expect(webRequestPatterns("https://localhost")).toEqual(["https://localhost/*", "https://localhost/?*"]);
+    for (const pattern of webRequestPatterns("https://localhost")) {
+      expect(() => assertElectronUrlPattern(pattern)).not.toThrow();
+    }
+    expect(() => assertElectronUrlPattern("https://localhost")).toThrow("Invalid url pattern https://localhost: Empty path.");
+    expect(webRequestPatterns("http://127.0.0.1:45832/callback")).toEqual(["http://127.0.0.1:45832/*"]);
   });
 });
 
