@@ -548,6 +548,7 @@ function wireIpc(): void {
       baseUrl: settings.aiBaseUrl,
       apiKey: store.getAiKey(),
       model: settings.aiModel,
+      format: settings.aiFormat,
       subject: "测试",
       from: "test@example.com",
       text: "Your verification code is 482913",
@@ -556,7 +557,9 @@ function wireIpc(): void {
       ? "测试通过"
       : (!result.failure && result.verdict && !result.verdict.accepted
         ? "测试未通过，模型结果里没有原文中的验证码"
-        : statusLine(result.failure, result.detail));
+        : result.failure === "http"
+          ? `测试失败：服务返回 ${result.detail}。401/403 多半是密钥不对，404 多半是地址或接口格式选错`
+          : statusLine(result.failure, result.detail));
     broadcast();
     return aiStatus;
   });

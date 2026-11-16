@@ -57,9 +57,14 @@ export class AccountStore {
     const configPath = this.configFile();
     if (fs.existsSync(configPath)) {
       const parsed = JSON.parse(fs.readFileSync(configPath, "utf8")) as Partial<ConfigFile>;
+      const loadedSettings = { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) } as Settings;
+      // 1.3.0 起 AI 只保留 DeepSeek / Sub2API / 自定义三种预设与两种接口格式；
+      // 旧预设（gemini/openrouter/groq/ollama）迁为自定义，保留用户已填的地址与模型。
+      if (!["deepseek", "sub2", "custom"].includes(loadedSettings.aiPreset)) loadedSettings.aiPreset = "custom";
+      if (loadedSettings.aiFormat !== "anthropic") loadedSettings.aiFormat = "openai";
       this.config = {
         version: 1,
-        settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
+        settings: loadedSettings,
         accounts: parsed.accounts || [],
         history: pruneHistory(parsed.history || []),
         seen: (parsed.seen || []).slice(-300),

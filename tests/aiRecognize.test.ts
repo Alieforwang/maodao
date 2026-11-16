@@ -31,14 +31,56 @@ function jsonResponse(content: string, status = 200): Response {
 }
 
 describe("AI 识别", () => {
-  it("预填的接口地址来自公开文档，模型名标记为未实测", () => {
-    expect(AI_PRESETS.find((item) => item.id === "gemini")?.baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta/openai/");
-    expect(AI_PRESETS.find((item) => item.id === "openrouter")?.baseUrl).toBe("https://openrouter.ai/api/v1");
-    expect(AI_PRESETS.find((item) => item.id === "groq")?.baseUrl).toBe("https://api.groq.com/openai/v1");
-    expect(AI_PRESETS.find((item) => item.id === "ollama")?.baseUrl).toBe("http://localhost:11434/v1");
-    expect(AI_PRESETS.find((item) => item.id === "deepseek")?.baseUrl).toBe("https://api.deepseek.com/v1");
+  it("只保留 DeepSeek / Sub2API / 自定义三种预设，DeepSeek 两种格式地址来自官方文档", () => {
+    expect(AI_PRESETS.map((item) => item.id)).toEqual(["deepseek", "sub2", "custom"]);
+    const deepseek = AI_PRESETS.find((item) => item.id === "deepseek");
+    expect(deepseek?.baseUrl).toBe("https://api.deepseek.com/v1");
+    expect(deepseek?.anthropicBaseUrl).toBe("https://api.deepseek.com/anthropic");
     expect(AI_PRESETS.find((item) => item.id === "sub2")?.baseUrl).toBe("");
-    expect(AI_PRESETS.filter((item) => item.id !== "custom").every((item) => item.modelNote.includes("未") || item.modelNote.includes("取决于"))).toBe(true);
+  });
+
+  it("Claude 格式走 /v1/messages、x-api-key 头，并能解析文本块响应", async () => {
+    let seenUrl = "";
+    let seenHeaders: Record<string, string> = {};
+    let seenBody = "";
+    const result = await requestAiVerdict({
+      baseUrl: "https://api.deepseek.com/anthropic",
+      apiKey: "test-key",
+      model: "deepseek-chat",
+      format: "anthropic",
+      subject: "验证码",
+      from: "notify@example.com",
+      text: "您的验证码是 482913",
+      fetchImpl: async (url, init) => {
+        seenUrl = String(url);
+        seenHeaders = init?.headers as Record<string, string>;
+        seenBody = String(init?.body || "");
+        return new Response(JSON.stringify({ content: [{ type: "text", text: '{"kind":"code","code":"482913","confidence":"high","reason":"看到了"}' }] }), { status: 200, headers: { "content-type": "application/json" } });
+      },
+    });
+    expect(seenUrl).toBe("https://api.deepseek.com/anthropic/v1/messages");
+    expect(seenHeaders["x-api-key"]).toBe("test-key");
+    expect(seenHeaders["anthropic-version"]).toBe("2023-06-01");
+    expect(JSON.parse(seenBody)).toMatchObject({ model: "deepseek-chat", max_tokens: 512 });
+    expect(result.verdict).toMatchObject({ accepted: true, code: "482913" });
+  });
+
+  it("Claude 格式根地址已带 /v1 时不重复补", async () => {
+    let seenUrl = "";
+    await requestAiVerdict({
+      baseUrl: "https://example.test/v1",
+      apiKey: "k",
+      model: "m",
+      format: "anthropic",
+      subject: "验证码",
+      from: "notify@example.com",
+      text: "您的验证码是 482913",
+      fetchImpl: async (url) => {
+        seenUrl = String(url);
+        return new Response(JSON.stringify({ content: [{ type: "text", text: '{"kind":"none","code":"","confidence":"low","reason":"无"}' }] }), { status: 200, headers: { "content-type": "application/json" } });
+      },
+    });
+    expect(seenUrl).toBe("https://example.test/v1/messages");
   });
 
   it("发给模型的文本去掉邮箱和手机号，并截断", () => {
@@ -103,8 +145,8 @@ describe("AI 识别", () => {
     expect(decision).toMatchObject({ action: "notify", reason: "maybe", code: "882211" });
     const muted = decideNotification({ ...base, senderPrefs: { "example.com": { muted: true } }, ai: { kind: "code", code: "882211", confidence: "high", reason: "", accepted: true } });
     expect(muted).toMatchObject({ action: "skip", reason: "muted" });
-    expect(shouldAskAi({ confidence: "high" }, { enabled: true, baseUrl: "http://localhost:11434/v1", model: "llama3.2", everyMessage: false, needsKey: false }, false)).toBe(false);
-    expect(shouldAskAi({ confidence: "medium" }, { enabled: true, baseUrl: "http://localhost:11434/v1", model: "llama3.2", everyMessage: false, needsKey: false }, false)).toBe(true);
+    expect(shouldAskAi({ confidence: "high" }, { enabled: true, baseUrl: "http://localhost:11434/v1", model: "llama3.2", format: "openai", everyMessage: false, needsKey: false }, false)).toBe(false);
+    expect(shouldAskAi({ confidence: "medium" }, { enabled: true, baseUrl: "http://localhost:11434/v1", model: "llama3.2", format: "openai", everyMessage: false, needsKey: false }, false)).toBe(true);
   });
 
   it("同一封邮件只问一次，间隔太短就跳过", () => {

@@ -8,11 +8,19 @@ export const AI_MIN_INTERVAL_MS = 1_500;
 export type AiConfidence = "high" | "medium" | "low";
 export type AiKind = "code" | "link" | "none";
 
-/** Endpoint strings come from public docs. Model ids were not called from this machine. */
+export type AiFormat = "openai" | "anthropic";
+
+/**
+ * 只保留两种接口格式：OpenAI 兼容（/chat/completions）和 Claude 格式（Anthropic /v1/messages）。
+ * DeepSeek 官方地址来自其公开文档，且 2026-11-16 已用真实密钥在开发机上实测两种格式均可返回验证码 JSON。
+ */
 export interface AiPreset {
-  id: "gemini" | "openrouter" | "groq" | "ollama" | "deepseek" | "sub2" | "custom";
+  id: "deepseek" | "sub2" | "custom";
   name: string;
+  /** OpenAI 格式的根地址。 */
   baseUrl: string;
+  /** Claude 格式的根地址；为空表示与 baseUrl 相同或由用户填写。 */
+  anthropicBaseUrl: string;
   model: string;
   needsKey: boolean;
   endpointNote: string;
@@ -21,74 +29,46 @@ export interface AiPreset {
 
 export const AI_PRESETS: AiPreset[] = [
   {
-    id: "gemini",
-    name: "Google Gemini",
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
-    model: "gemini-2.5-flash",
-    needsKey: true,
-    endpointNote: "地址写在 Google 的 OpenAI 兼容文档里。",
-    modelNote: "模型名未在本机调用过，以 AI Studio 列表为准。",
-  },
-  {
-    id: "openrouter",
-    name: "OpenRouter",
-    baseUrl: "https://openrouter.ai/api/v1",
-    model: "meta-llama/llama-3.3-70b-instruct:free",
-    needsKey: true,
-    endpointNote: "地址是 OpenRouter 的 OpenAI 兼容入口。",
-    modelNote: "带 :free 的模型名未在本机核对，免费额度可能变。",
-  },
-  {
-    id: "groq",
-    name: "Groq",
-    baseUrl: "https://api.groq.com/openai/v1",
-    model: "llama-3.3-70b-versatile",
-    needsKey: true,
-    endpointNote: "地址写在 Groq 的 OpenAI 兼容文档里。",
-    modelNote: "模型名未在本机调用过，以 Groq 控制台为准。",
-  },
-  {
-    id: "ollama",
-    name: "本地 Ollama",
-    baseUrl: "http://localhost:11434/v1",
-    model: "llama3.2",
-    needsKey: false,
-    endpointNote: "地址写在 Ollama 的 OpenAI 兼容文档里，不出本机。",
-    modelNote: "模型名取决于你本机已经拉取的标签。",
-  },
-  {
     id: "deepseek",
     name: "DeepSeek",
     baseUrl: "https://api.deepseek.com/v1",
+    anthropicBaseUrl: "https://api.deepseek.com/anthropic",
     model: "deepseek-chat",
     needsKey: true,
-    endpointNote: "地址是 DeepSeek 的 OpenAI 兼容入口。",
-    modelNote: "模型名未在本机调用过，deepseek-chat / deepseek-reasoner 以控制台为准。",
+    endpointNote: "地址是 DeepSeek 官方文档里的两种格式入口，切换格式会自动换地址。",
+    modelNote: "deepseek-chat 已实测可用；deepseek-reasoner 也可以填，以控制台为准。",
   },
   {
     id: "sub2",
     name: "Sub2API 站点",
     baseUrl: "",
+    anthropicBaseUrl: "",
     model: "",
     needsKey: true,
-    endpointNote: "填你自己的 Sub2API 站点根地址（OpenAI 兼容，一般以 /v1 结尾）。",
+    endpointNote: "填你自己的 Sub2API 站点根地址。站点一般同时支持 OpenAI 和 Claude 两种格式，根地址按站点文档填。",
     modelNote: "模型名未预填，填站点里可用的模型，以站点的模型列表为准。",
   },
   {
     id: "custom",
     name: "自定义",
     baseUrl: "",
+    anthropicBaseUrl: "",
     model: "",
     needsKey: true,
-    endpointNote: "填写兼容 OpenAI 的 /v1 根地址。",
+    endpointNote: "填写服务商的根地址，再选它支持的接口格式。",
     modelNote: "模型名按服务商文档填写。",
   },
 ];
+
+export function presetBaseUrl(preset: AiPreset, format: AiFormat): string {
+  return format === "anthropic" ? (preset.anthropicBaseUrl || preset.baseUrl) : preset.baseUrl;
+}
 
 export interface AiSettings {
   enabled: boolean;
   baseUrl: string;
   model: string;
+  format: AiFormat;
   everyMessage: boolean;
   needsKey: boolean;
 }
@@ -132,8 +112,7 @@ export function codeAppearsInOriginal(code: string, original: string): boolean {
   return boundedAlnum(trimmed, original);
 }
 
-export function aiNeedsKey(baseUrl: string, preset: string): boolean {
-  if (preset === "ollama") return false;
+export function aiNeedsKey(baseUrl: string): boolean {
   try {
     const host = new URL(baseUrl).hostname;
     if (host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1") return false;
@@ -198,6 +177,14 @@ export function chatCompletionsUrl(baseUrl: string): string {
   return `${trimmed.replace(/\/+$/, "")}/chat/completions`;
 }
 
+/** Claude 格式入口：根地址以 /v1 结尾时只补 /messages，否则补 /v1/messages。 */
+export function messagesUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim();
+  if (!/^https?:\/\//i.test(trimmed)) throw new Error("地址需要以 http:// 或 https:// 开头");
+  const root = trimmed.replace(/\/+$/, "");
+  return /\/v1$/i.test(root) ? `${root}/messages` : `${root}/v1/messages`;
+}
+
 export function aiPrompt(): string {
   return '从邮件里找验证码。只回复一个 JSON 对象，不要加别的文字：{"kind":"code"|"link"|"none","code":"","confidence":"high"|"medium"|"low","reason":""}。kind 为 code 时，code 必须是原文里出现过的那一串，并且至少包含一位数字。不要把 daily、today 这类普通单词当成验证码。没有验证码就用 none。只有链接验证、没有数字或字母码时用 link，code 留空。';
 }
@@ -217,6 +204,7 @@ export async function requestAiVerdict(input: {
   baseUrl: string;
   apiKey: string;
   model: string;
+  format?: AiFormat;
   subject: string;
   from: string;
   text: string;
@@ -225,27 +213,38 @@ export async function requestAiVerdict(input: {
   fetchImpl?: typeof fetch;
 }): Promise<{ verdict: AiVerdict | null; failure?: AiFailure; detail?: string }> {
   const original = `${input.subject}\n${input.text}`;
+  const format = input.format ?? "openai";
+  const userText = buildAiUserText(input);
+  const url = format === "anthropic" ? messagesUrl(input.baseUrl) : chatCompletionsUrl(input.baseUrl);
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  let body: string;
+  if (format === "anthropic") {
+    if (input.apiKey) headers["x-api-key"] = input.apiKey;
+    headers["anthropic-version"] = "2023-06-01";
+    body = JSON.stringify({
+      model: input.model,
+      max_tokens: 512,
+      temperature: 0,
+      system: aiPrompt(),
+      messages: [{ role: "user", content: userText }],
+    });
+  } else {
+    if (input.apiKey) headers.authorization = `Bearer ${input.apiKey}`;
+    body = JSON.stringify({
+      model: input.model,
+      temperature: 0,
+      messages: [
+        { role: "system", content: aiPrompt() },
+        { role: "user", content: userText },
+      ],
+    });
+  }
   let response: Response;
   const fetchImpl = input.fetchImpl || fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? AI_TIMEOUT_MS);
   try {
-    response = await fetchImpl(chatCompletionsUrl(input.baseUrl), {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(input.apiKey ? { authorization: `Bearer ${input.apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        model: input.model,
-        temperature: 0,
-        messages: [
-          { role: "system", content: aiPrompt() },
-          { role: "user", content: buildAiUserText(input) },
-        ],
-      }),
-      signal: controller.signal,
-    });
+    response = await fetchImpl(url, { method: "POST", headers, body, signal: controller.signal });
   } catch (error) {
     const aborted = error instanceof Error && error.name === "AbortError";
     return { verdict: null, failure: aborted ? "timeout" : "network", detail: aborted ? "超时" : "网络" };
@@ -256,8 +255,13 @@ export async function requestAiVerdict(input: {
   if (!response.ok) return { verdict: null, failure: "http", detail: String(response.status) };
   let content = "";
   try {
-    const json = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    content = json.choices?.[0]?.message?.content || "";
+    if (format === "anthropic") {
+      const json = await response.json() as { content?: Array<{ type?: string; text?: string }> };
+      content = (json.content || []).filter((block) => block.type === "text").map((block) => block.text || "").join("");
+    } else {
+      const json = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+      content = json.choices?.[0]?.message?.content || "";
+    }
   } catch {
     return { verdict: null, failure: "invalid", detail: "响应不是 JSON" };
   }

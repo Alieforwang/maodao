@@ -41,7 +41,8 @@ export interface Settings {
   senderPrefs: Record<string, SenderPref>;
   /** 默认关闭。配好接口后才会对把握不够的邮件调用模型。 */
   aiEnabled: boolean;
-  aiPreset: "gemini" | "openrouter" | "groq" | "ollama" | "deepseek" | "sub2" | "custom";
+  aiPreset: "deepseek" | "sub2" | "custom";
+  aiFormat: "openai" | "anthropic";
   aiBaseUrl: string;
   aiModel: string;
   /** 高级：连高置信的规则结果也再问一次模型，但模型不能推翻高置信规则。 */
@@ -191,6 +192,7 @@ export const DEFAULT_SETTINGS: Settings = {
   senderPrefs: {},
   aiEnabled: false,
   aiPreset: "custom",
+  aiFormat: "openai",
   aiBaseUrl: "",
   aiModel: "",
   aiEveryMessage: false,

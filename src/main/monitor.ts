@@ -365,8 +365,9 @@ export class MailMonitor {
       enabled: settings.aiEnabled,
       baseUrl: settings.aiBaseUrl,
       model: settings.aiModel,
+      format: settings.aiFormat,
       everyMessage: settings.aiEveryMessage,
-      needsKey: aiNeedsKey(settings.aiBaseUrl, settings.aiPreset),
+      needsKey: aiNeedsKey(settings.aiBaseUrl),
     };
     if (settings.aiEnabled && aiSettings.needsKey && !key) {
       this.deps.onAiStatus?.("远程接口还没有密钥，这次用规则结果");
@@ -381,6 +382,7 @@ export class MailMonitor {
       baseUrl: settings.aiBaseUrl,
       apiKey: key,
       model: settings.aiModel,
+      format: settings.aiFormat,
       subject,
       from,
       text,
