@@ -33,6 +33,7 @@ export type Decision =
       selectedIndex: number;
       verifyUrl: string | null;
       domain: string;
+      expiresAt: number | null;
     };
 
 export interface MailRecognition {
@@ -46,6 +47,8 @@ export interface MailRecognition {
   domain: string;
   keyword: string | null;
   selectedIndex: number;
+  /** receivedAt + the validity window the mail states, for code/maybe only. Null when unstated. */
+  expiresAt: number | null;
 }
 
 export function describeRecognition(input: DecideInput): MailRecognition {
@@ -58,6 +61,9 @@ export function describeRecognition(input: DecideInput): MailRecognition {
   if (extracted.confidence === "high" && chosen?.code) classification = "code";
   else if (extracted.confidence === "medium" && ranked.length > 0) classification = "maybe";
   else if (extracted.kind === "link" && extracted.verifyUrl) classification = "link";
+  const expiresAt = (classification === "code" || classification === "maybe") && extracted.validMinutes
+    ? input.internalDate + extracted.validMinutes * 60_000
+    : null;
   return {
     classification,
     confidence: extracted.confidence,
@@ -69,6 +75,7 @@ export function describeRecognition(input: DecideInput): MailRecognition {
     domain,
     keyword: extracted.keyword,
     selectedIndex: classification === "maybe" || classification === "code" ? selectedIndex : 0,
+    expiresAt,
   };
 }
 
@@ -85,17 +92,17 @@ export function decideNotification(input: DecideInput): Decision {
   const service = inferService(input.from, input.subject, input.body);
   const ranked = found.candidates.map((code, index) => ({ code, display: found.displays[index] || code, keyword: found.keyword || "", score: 80 - index, source: "body" as const }));
   if (found.classification === "code" && found.code) {
-    return { action: "notify", reason: "code", code: found.code, display: found.display, keyword: found.keyword, service, candidates: ranked, selectedIndex: found.selectedIndex, verifyUrl: null, domain };
+    return { action: "notify", reason: "code", code: found.code, display: found.display, keyword: found.keyword, service, candidates: ranked, selectedIndex: found.selectedIndex, verifyUrl: null, domain, expiresAt: found.expiresAt };
   }
   if (found.classification === "maybe" && found.code) {
-    return { action: "notify", reason: "maybe", code: found.code, display: found.display, keyword: found.keyword, service, candidates: ranked, selectedIndex: found.selectedIndex, verifyUrl: null, domain };
+    return { action: "notify", reason: "maybe", code: found.code, display: found.display, keyword: found.keyword, service, candidates: ranked, selectedIndex: found.selectedIndex, verifyUrl: null, domain, expiresAt: found.expiresAt };
   }
   if (found.classification === "link") {
     const extracted = extractFromMail({ subject: input.subject, body: input.body, html: input.html, from: input.from });
-    return { action: "notify", reason: "link", code: null, display: null, keyword: "link", service, candidates: [], selectedIndex: 0, verifyUrl: extracted.verifyUrl, domain };
+    return { action: "notify", reason: "link", code: null, display: null, keyword: "link", service, candidates: [], selectedIndex: 0, verifyUrl: extracted.verifyUrl, domain, expiresAt: null };
   }
   if (!input.notifyAllMail) return { action: "skip", reason: "no-code" };
-  return { action: "notify", reason: "all-mail", code: null, display: null, keyword: null, service, candidates: [], selectedIndex: 0, verifyUrl: null, domain };
+  return { action: "notify", reason: "all-mail", code: null, display: null, keyword: null, service, candidates: [], selectedIndex: 0, verifyUrl: null, domain, expiresAt: null };
 }
 
 function preferredIndex(candidates: Candidate[], preferIndex?: number): number {

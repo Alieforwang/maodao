@@ -31,6 +31,12 @@ const EMPTY: ConfigFile = {
   seen: [],
 };
 
+/** History keeps the newest 200 entries and nothing older than 7 days (was: newest 20). */
+export function pruneHistory(items: HistoryItem[], now = Date.now()): HistoryItem[] {
+  const cutoff = now - 7 * 24 * 60 * 60 * 1000;
+  return items.filter((item) => item.receivedAt >= cutoff).slice(0, 200);
+}
+
 export class AccountStore {
   private config: ConfigFile = structuredClone(EMPTY);
   private secrets = new Map<string, SecretPayload>();
@@ -55,7 +61,7 @@ export class AccountStore {
         version: 1,
         settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
         accounts: parsed.accounts || [],
-        history: (parsed.history || []).slice(0, 20),
+        history: pruneHistory(parsed.history || []),
         seen: (parsed.seen || []).slice(-300),
       };
       const merged = mergeOutlookAccounts(this.config.accounts);
@@ -157,7 +163,15 @@ export class AccountStore {
   }
 
   addHistory(item: HistoryItem): void {
-    this.config.history = [item, ...this.config.history.filter((entry) => entry.id !== item.id)].slice(0, 20);
+    this.config.history = pruneHistory([item, ...this.config.history.filter((entry) => entry.id !== item.id)], item.receivedAt);
+    this.persistConfig();
+  }
+
+  /** Stamp copiedAt on the newest history entry carrying this code, so every surface can show “已复制”. */
+  markCopied(code: string): void {
+    const item = this.config.history.find((entry) => entry.code === code);
+    if (!item) return;
+    item.copiedAt = Date.now();
     this.persistConfig();
   }
 

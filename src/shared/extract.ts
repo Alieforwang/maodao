@@ -29,6 +29,33 @@ export interface MailExtract {
   candidates: Candidate[];
   kind: "code" | "link" | "none";
   verifyUrl: string | null;
+  /** Validity window stated in the mail itself ("5 分钟内有效"), in minutes. Null when the mail does not say. */
+  validMinutes: number | null;
+}
+
+const VALIDITY_PATTERNS: Array<{ re: RegExp; toMinutes: (n: number) => number }> = [
+  { re: /(\d{1,3})\s*分钟内(?:有效|使用|完成|输入|验证)/, toMinutes: (n) => n },
+  { re: /(\d{1,3})\s*分钟后(?:失效|过期|作废)/, toMinutes: (n) => n },
+  { re: /有效期(?:为|是|：|:)?\s*(\d{1,3})\s*分钟/, toMinutes: (n) => n },
+  { re: /请在\s*(\d{1,3})\s*分钟内/, toMinutes: (n) => n },
+  { re: /(\d{1,2})\s*小时内(?:有效|使用|完成|验证)/, toMinutes: (n) => n * 60 },
+  { re: /valid for\s+(\d{1,3})\s*minutes?/i, toMinutes: (n) => n },
+  { re: /expires?\s+in\s+(\d{1,3})\s*minutes?/i, toMinutes: (n) => n },
+  { re: /within\s+(\d{1,3})\s*minutes?/i, toMinutes: (n) => n },
+  { re: /valid for\s+(\d{1,2})\s*hours?/i, toMinutes: (n) => n * 60 },
+];
+
+/** Parse the code validity window the mail states about itself. Deliberately conservative: no phrase, no guess.
+ * Only the head of the mail is scanned — validity wording lives next to the code, and huge HTML bodies stay fast. */
+export function parseValidMinutes(text: string): number | null {
+  const head = text.length > 8000 ? text.slice(0, 8000) : text;
+  for (const { re, toMinutes } of VALIDITY_PATTERNS) {
+    const match = head.match(re);
+    if (!match) continue;
+    const minutes = toMinutes(Number(match[1]));
+    if (Number.isFinite(minutes) && minutes >= 1 && minutes <= 180) return minutes;
+  }
+  return null;
 }
 
 interface Label {
@@ -124,6 +151,7 @@ export function extractFromMail(input: { subject?: string; body?: string; html?:
   const links = unique([...subject.links, ...body.links, ...(htmlPrepared?.links || [])]).filter(isActionableLink);
   const linkText = `${subject.text}\n${htmlPrepared?.text || ""}\n${body.text}`;
   const verifyUrl = LINK_PHRASE.test(linkText) ? links[0] || null : null;
+  const validMinutes = parseValidMinutes(`${input.subject || ""}\n${input.body || ""}\n${htmlPrepared?.text || ""}`);
   if (best && confidence !== "low") {
     const top = visible.slice(0, 3);
     return {
@@ -134,12 +162,13 @@ export function extractFromMail(input: { subject?: string; body?: string; html?:
       candidates: top,
       kind: "code",
       verifyUrl,
+      validMinutes,
     };
   }
   if (verifyUrl) {
-    return { code: null, display: null, keyword: "link", confidence: "low", candidates: [], kind: "link", verifyUrl };
+    return { code: null, display: null, keyword: "link", confidence: "low", candidates: [], kind: "link", verifyUrl, validMinutes };
   }
-  return { code: null, display: null, keyword: null, confidence: "low", candidates: [], kind: "none", verifyUrl: null };
+  return { code: null, display: null, keyword: null, confidence: "low", candidates: [], kind: "none", verifyUrl: null, validMinutes };
 }
 
 export function senderDomain(from: string): string {

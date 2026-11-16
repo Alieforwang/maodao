@@ -6,6 +6,7 @@ declare module "imapflow" {
     mailbox: false | { uidNext?: number; path?: string; exists?: number };
     connect(): Promise<void>;
     logout(): Promise<void>;
+    list(): Promise<Array<{ name: string; path: string; specialUse?: string }>>;
     close(): void;
     idle(): Promise<boolean | void>;
     getMailboxLock(path: string): Promise<{ release(): void }>;

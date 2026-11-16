@@ -4,6 +4,8 @@ import "@fontsource/noto-sans-sc/chinese-simplified-400.css";
 import "@fontsource/noto-sans-sc/chinese-simplified-500.css";
 import "@fontsource/noto-sans-sc/chinese-simplified-600.css";
 import "@fontsource/noto-sans-sc/chinese-simplified-700.css";
+import "@fontsource/ibm-plex-mono/500.css";
+import "@fontsource/ibm-plex-mono/700.css";
 import "./app.css";
 import { App } from "./App";
 import { ToastApp } from "./Toast";
