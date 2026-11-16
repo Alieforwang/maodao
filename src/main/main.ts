@@ -79,7 +79,15 @@ function createMonitor(): MailMonitor {
 }
 
 function theme(): "light" | "dark" {
+  const mode = store.settings.themeMode;
+  if (mode === "light" || mode === "dark") return mode;
   return nativeTheme.shouldUseDarkColors ? "dark" : "light";
+}
+
+/** Keep Electron's own dark-mode detection in step with the user's choice so
+ * window chrome and `theme()` agree. "system" hands control back to the OS. */
+function applyThemeSource(): void {
+  nativeTheme.themeSource = store.settings.themeMode;
 }
 
 function snapshot(): AppState {
@@ -557,6 +565,7 @@ function wireIpc(): void {
     applyLogin(settings.openAtLogin);
     if ("autoCheckUpdates" in patch) updater?.schedule();
     if ("hotkeyCopyLatest" in patch) applyHotkey();
+    if ("themeMode" in patch) applyThemeSource();
     broadcast();
     return settings;
   });
@@ -825,6 +834,7 @@ if (smoke) {
   monitor = createMonitor();
   store.load();
   if (e2e) nativeTheme.themeSource = "light";
+  else applyThemeSource();
   wireIpc();
   applyHotkey();
   nativeTheme.on("updated", broadcast);

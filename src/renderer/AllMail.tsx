@@ -91,29 +91,25 @@ export function AllMail({ state }: { state: AppState }) {
           ))}
         </div>
         <input aria-label="搜索发件人或标题" placeholder="搜索发件人或标题" value={search} onChange={(event) => setSearch(event.target.value)} />
-        <label className="hint">保留
-          <select aria-label="保留天数" value={state.settings.mailRetentionDays} onChange={(event) => void api.updateSettings({ mailRetentionDays: Number(event.target.value) as 7 | 30 | 90 })}>
-            {[7, 30, 90].map((days) => <option key={days} value={days}>{days} 天</option>)}
-          </select>
-        </label>
-        <label className="hint">每个邮箱
-          <select aria-label="每个邮箱保留封数" value={state.settings.mailRetentionCount} onChange={(event) => void api.updateSettings({ mailRetentionCount: Number(event.target.value) as 200 | 500 | 1000 })}>
-            {[200, 500, 1000].map((count) => <option key={count} value={count}>{count} 封</option>)}
-          </select>
-        </label>
       </div>
       <div className="mail-log">
         <div className="mail-list">
           {rows.length === 0 ? <p className="empty">还没有符合条件的邮件。</p> : rows.map((mail) => (
             <button key={mail.id} type="button" className={`mail-row ${selectedId === mail.id ? "on" : ""}`} onClick={() => setSelectedId(mail.id)}>
-              <span>{formatWhen(mail.receivedAt)}</span>
-              <strong>{mail.subject || "（无标题）"}</strong>
-              <em>{mail.email}</em>
-              <em>{mail.from}</em>
-              <b>{classLabel(mail.classification)} · {mail.confidence === "high" ? "高" : mail.confidence === "medium" ? "中" : "低"} · {sourceLabel(mail.source)}{mail.contentKind ? ` · ${CONTENT_KIND_LABELS[mail.contentKind]}` : ""}</b>
-              {typeof mail.spamScore === "number" && mail.spamScore >= 40 && (
-                <span className="spam-bar" title={`垃圾风险 ${mail.spamScore} 分`}><i style={{ width: `${mail.spamScore}%` }} /><em>{mail.spamScore}</em></span>
-              )}
+              <span className="mail-row-top">
+                <strong>{mail.subject || "（无标题）"}</strong>
+                <time>{formatWhen(mail.receivedAt)}</time>
+              </span>
+              <span className="mail-row-sub">
+                <em>{mail.from}</em>
+                {mail.classification === "code" ? (
+                  <span className="chip chip-code">验证码 <b>{mail.display || mail.code || ""}</b></span>
+                ) : mail.classification !== "none" ? (
+                  <span className="chip">{classLabel(mail.classification)}</span>
+                ) : null}
+                {mail.contentKind && mail.contentKind !== "normal" && <span className="chip">{CONTENT_KIND_LABELS[mail.contentKind]}</span>}
+                {typeof mail.spamScore === "number" && mail.spamScore >= 40 && <span className="chip chip-risk">风险 {mail.spamScore}</span>}
+              </span>
             </button>
           ))}
         </div>

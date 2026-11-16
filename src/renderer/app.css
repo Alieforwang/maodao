@@ -377,7 +377,10 @@ html[data-theme="dark"] .window {
   font-size: 12px;
 }
 .brand-icon { width: 16px; height: 16px; border-radius: 4px; display: block; }
-.brand-logo { height: 88px; width: auto; max-width: min(280px, 100%); object-fit: contain; display: block; margin-bottom: 8px; }
+.about-id { display: flex; align-items: center; gap: 12px; }
+.about-id h3 { margin: 0; }
+.about-id p { margin: 2px 0 0; }
+.app-icon { width: 44px; height: 44px; border-radius: 10px; flex: none; }
 .caption { margin-left: auto; display: flex; height: 100%; }
 .caption button {
   width: 46px;
@@ -743,10 +746,20 @@ html[data-window="tray"] #tray-history { overflow: auto; }
 .mail-log { display: grid; grid-template-columns: minmax(260px, 380px) minmax(0, 1fr); gap: 12px; min-height: 420px; }
 .mail-list, .mail-detail { border: 1px solid var(--stroke); border-radius: 8px; background: var(--card-solid); min-height: 0; }
 .mail-list { overflow: auto; max-height: 70vh; }
-.mail-row { width: 100%; border: 0; border-bottom: 1px solid var(--stroke); background: transparent; text-align: left; padding: 10px 12px; display: grid; gap: 2px; }
+.mail-row { width: 100%; border: 0; border-bottom: 1px solid var(--stroke); background: transparent; text-align: left; padding: 10px 12px; display: grid; gap: 5px; cursor: pointer; }
+.mail-row:hover { background: var(--hover); }
 .mail-row.on { background: var(--accent-soft); }
 .mail-row strong { font-size: 14px; }
 .mail-row em, .mail-row span, .mail-row b { font-style: normal; font-weight: 400; color: var(--text-2); font-size: 12px; }
+.mail-row-top { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.mail-row-top strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.mail-row-top time { flex: none; color: var(--text-3); font-size: 12px; }
+.mail-row-sub { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mail-row-sub em { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip { flex: none; font-size: 11px; line-height: 1.5; padding: 1px 8px; border-radius: 999px; background: var(--segment); color: var(--text-2); }
+.chip-code { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.chip-code b { font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.5px; }
+.chip-risk { color: var(--danger); font-weight: 600; }
 .mail-detail { padding: 16px; overflow: auto; max-height: 70vh; }
 .mail-body { white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 12px 0; }
 .mail-body mark { background: var(--accent-soft); color: inherit; padding: 0 2px; }

@@ -6,7 +6,7 @@ import { AllMail } from "./AllMail";
 import { formatWhen, remainText, statusOf } from "./format";
 import { AI_PRESETS } from "../shared/aiRecognize";
 import brandIcon from "./brand/icon-32.png";
-import brandLogo from "./brand/maodao-logo.png";
+import appIcon from "../../resources/icon.png";
 import { outlookDisplay } from "../shared/outlookMailbox";
 import { OutlookAdd } from "./OutlookAdd";
 
@@ -351,11 +351,40 @@ function Settings({ state }: { state: AppState }) {
     <div>
       <div className="page-head">
         <div>
-          <img className="brand-logo" src={brandLogo} alt="码到 MaoDao" />
           <h1>设置</h1>
           <p className="lede">这些开关只影响这台电脑上的码到。</p>
         </div>
       </div>
+      <section className="set-block">
+        <div className="group">
+          <div className="set-row">
+            <div className="about-id">
+              <img className="app-icon" src={appIcon} alt="" />
+              <div>
+                <h3>码到 MaoDao</h3>
+                <p>当前版本 {state.version} · {state.update.message}</p>
+              </div>
+            </div>
+            <button className="btn" type="button" onClick={() => void api.checkForUpdates()}>检查更新</button>
+          </div>
+        </div>
+      </section>
+      <section className="set-block">
+        <h2>外观</h2>
+        <div className="group">
+          <div className="set-row">
+            <div>
+              <h3>主题</h3>
+              <p>浅色（日间）和深色样式都内置了。跟随系统时，Windows 切换深浅色，这边会一起变。</p>
+            </div>
+            <div className="segment" role="radiogroup" aria-label="主题">
+              {([["system", "跟随系统"], ["light", "浅色"], ["dark", "深色"]] as const).map(([value, label]) => (
+                <button key={value} type="button" className={settings.themeMode === value ? "on" : ""} onClick={() => set({ themeMode: value })}>{label}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
       <section className="set-block">
         <h2>启动</h2>
         <div className="group">
@@ -368,7 +397,6 @@ function Settings({ state }: { state: AppState }) {
         <div className="group">
           <SetRow title="只提醒带验证码的邮件" text="关掉之后，每封新邮件都会在右下角弹出。认不出验证码的邮件默认不提醒。" on={settings.notifyOnlyCodes} onToggle={() => set({ notifyOnlyCodes: !settings.notifyOnlyCodes })} />
           <SetRow title="提示音" text="验证码通知出现时播放一声短促提示音。" on={settings.sound} onToggle={() => set({ sound: !settings.sound })} />
-          <SetRow title="全局快捷键复制最新验证码" text="在任何软件里按 Ctrl+Shift+V，最新一条验证码直接写入剪贴板，不用去点通知。被其他软件占用时不会生效，可在这里关掉。" on={settings.hotkeyCopyLatest} onToggle={() => set({ hotkeyCopyLatest: !settings.hotkeyCopyLatest })} />
           <div className="set-row">
             <div>
               <h3>静默模式</h3>
@@ -402,6 +430,12 @@ function Settings({ state }: { state: AppState }) {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+      <section className="set-block">
+        <h2>验证码</h2>
+        <div className="group">
+          <SetRow title="全局快捷键复制最新验证码" text="在任何软件里按 Ctrl+Shift+V，最新一条验证码直接写入剪贴板，不用去点通知。被其他软件占用时不会生效，可在这里关掉。" on={settings.hotkeyCopyLatest} onToggle={() => set({ hotkeyCopyLatest: !settings.hotkeyCopyLatest })} />
           <div className="set-row">
             <div>
               <h3>复制后自动清空剪贴板</h3>
@@ -413,12 +447,6 @@ function Settings({ state }: { state: AppState }) {
               ))}
             </div>
           </div>
-          <SetRow title="顺带巡查垃圾箱" text="有些验证码会被邮箱误投到垃圾箱。每 5 分钟用一条临时连接扫一眼垃圾箱最近的邮件，捞到了照常提醒并标注「来自垃圾箱」。服务器没有垃圾箱时自动跳过。" on={settings.watchJunkFolder} onToggle={() => set({ watchJunkFolder: !settings.watchJunkFolder })} />
-        </div>
-      </section>
-      <section className="set-block">
-        <h2>识别</h2>
-        <div className="group">
           <div className="set-row">
             <div>
               <h3>新邮件时间窗</h3>
@@ -427,6 +455,34 @@ function Settings({ state }: { state: AppState }) {
             <div className="segment" role="radiogroup" aria-label="新邮件时间窗">
               {[3, 5, 10, 15, 30, 60].map((value) => (
                 <button key={value} type="button" className={settings.maxAgeMinutes === value ? "on" : ""} onClick={() => set({ maxAgeMinutes: value as 3 | 5 | 10 | 15 | 30 | 60 })}>{value} 分钟</button>
+              ))}
+            </div>
+          </div>
+          <SetRow title="顺带巡查垃圾箱" text="有些验证码会被邮箱误投到垃圾箱。每 5 分钟用一条临时连接扫一眼垃圾箱最近的邮件，捞到了照常提醒并标注「来自垃圾箱」。服务器没有垃圾箱时自动跳过。" on={settings.watchJunkFolder} onToggle={() => set({ watchJunkFolder: !settings.watchJunkFolder })} />
+        </div>
+      </section>
+      <section className="set-block">
+        <h2>存储</h2>
+        <div className="group">
+          <div className="set-row">
+            <div>
+              <h3>邮件保留天数</h3>
+              <p>「全部邮件」在本机保留多久，超期自动清掉。记录（验证码历史）固定保留 7 天。</p>
+            </div>
+            <div className="segment" role="radiogroup" aria-label="邮件保留天数">
+              {[7, 30, 90].map((value) => (
+                <button key={value} type="button" className={settings.mailRetentionDays === value ? "on" : ""} onClick={() => set({ mailRetentionDays: value as 7 | 30 | 90 })}>{value} 天</button>
+              ))}
+            </div>
+          </div>
+          <div className="set-row">
+            <div>
+              <h3>每个邮箱保留封数</h3>
+              <p>单个邮箱在本机最多留多少封邮件，超出的从最旧的开始清。</p>
+            </div>
+            <div className="segment" role="radiogroup" aria-label="每个邮箱保留封数">
+              {[200, 500, 1000].map((value) => (
+                <button key={value} type="button" className={settings.mailRetentionCount === value ? "on" : ""} onClick={() => set({ mailRetentionCount: value as 200 | 500 | 1000 })}>{value} 封</button>
               ))}
             </div>
           </div>
@@ -493,14 +549,7 @@ function Settings({ state }: { state: AppState }) {
       <section className="set-block">
         <h2>更新</h2>
         <div className="group">
-          <div className="set-row">
-            <div>
-              <h3>当前版本 {state.version}</h3>
-              <p>{state.update.message}</p>
-            </div>
-            <button className="btn" type="button" onClick={() => void api.checkForUpdates()}>检查更新</button>
-          </div>
-          <SetRow title="自动检查更新" text="启动约 20 秒后检查一次，之后每 6 小时再检查。下载在后台进行。" on={settings.autoCheckUpdates} onToggle={() => set({ autoCheckUpdates: !settings.autoCheckUpdates })} />
+          <SetRow title="自动检查更新" text="启动约 20 秒后检查一次，之后每 6 小时再检查。下载在后台进行。手动检查在设置页顶部。" on={settings.autoCheckUpdates} onToggle={() => set({ autoCheckUpdates: !settings.autoCheckUpdates })} />
           {state.update.phase === "downloaded" && (
             <div className="set-row">
               <div>

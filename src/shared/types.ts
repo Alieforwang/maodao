@@ -41,7 +41,7 @@ export interface Settings {
   senderPrefs: Record<string, SenderPref>;
   /** 默认关闭。配好接口后才会对把握不够的邮件调用模型。 */
   aiEnabled: boolean;
-  aiPreset: "gemini" | "openrouter" | "groq" | "ollama" | "custom";
+  aiPreset: "gemini" | "openrouter" | "groq" | "ollama" | "deepseek" | "sub2" | "custom";
   aiBaseUrl: string;
   aiModel: string;
   /** 高级：连高置信的规则结果也再问一次模型，但模型不能推翻高置信规则。 */
@@ -58,6 +58,8 @@ export interface Settings {
   mailRetentionDays: 7 | 30 | 90;
   /** 每个邮箱在本地最多保留多少封。 */
   mailRetentionCount: 200 | 500 | 1000;
+  /** 界面主题：跟随系统或强制浅色/深色。浅色与深色样式都已内置，之前只能跟随系统。 */
+  themeMode: "system" | "light" | "dark";
 }
 
 export interface SenderPref {
@@ -198,6 +200,7 @@ export const DEFAULT_SETTINGS: Settings = {
   clipboardClearMinutes: 5,
   mailRetentionDays: 30,
   mailRetentionCount: 500,
+  themeMode: "system",
 };
 
 export type MailClass = "code" | "maybe" | "link" | "none";

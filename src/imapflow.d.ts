@@ -9,6 +9,7 @@ declare module "imapflow" {
     list(): Promise<Array<{ name: string; path: string; specialUse?: string }>>;
     close(): void;
     idle(): Promise<boolean | void>;
+    noop(): Promise<void>;
     getMailboxLock(path: string): Promise<{ release(): void }>;
     fetchAll(range: string, query: Record<string, unknown>, options?: { uid?: boolean }): Promise<Array<{ uid: number; internalDate?: Date; source?: Buffer; envelope?: { subject?: string; from?: Array<{ name?: string; address?: string }> } }>>;
     fetchOne(range: string, query: Record<string, unknown>, options?: { uid?: boolean }): Promise<{ uid: number } | false>;

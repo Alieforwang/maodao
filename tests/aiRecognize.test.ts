@@ -36,6 +36,8 @@ describe("AI 识别", () => {
     expect(AI_PRESETS.find((item) => item.id === "openrouter")?.baseUrl).toBe("https://openrouter.ai/api/v1");
     expect(AI_PRESETS.find((item) => item.id === "groq")?.baseUrl).toBe("https://api.groq.com/openai/v1");
     expect(AI_PRESETS.find((item) => item.id === "ollama")?.baseUrl).toBe("http://localhost:11434/v1");
+    expect(AI_PRESETS.find((item) => item.id === "deepseek")?.baseUrl).toBe("https://api.deepseek.com/v1");
+    expect(AI_PRESETS.find((item) => item.id === "sub2")?.baseUrl).toBe("");
     expect(AI_PRESETS.filter((item) => item.id !== "custom").every((item) => item.modelNote.includes("未") || item.modelNote.includes("取决于"))).toBe(true);
   });
 

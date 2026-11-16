@@ -283,6 +283,19 @@ export class MailMonitor {
     };
 
     client.on("exists", () => enqueue("live"));
+    // Watchdog: an IDLE connection can die silently (NAT timeout, server drop)
+    // without surfacing an error, and polling-mode servers only learn about new
+    // mail when a command runs. Sweep for anything the event stream missed and
+    // probe with NOOP so a dead connection is torn down and rebuilt by session()
+    // (whose startup pull then recovers the gap) instead of sitting in a fake
+    // "listening" state while codes arrive unnoticed.
+    const watchdog = setInterval(() => {
+      if (closed) return;
+      enqueue("live");
+      void client.noop().catch(() => {
+        try { client.close(); } catch { /* already closed */ }
+      });
+    }, 90_000);
     const done = new Promise<void>((resolve) => {
       const finish = () => {
         if (closed) return;
@@ -300,6 +313,7 @@ export class MailMonitor {
       await done;
     } finally {
       closed = true;
+      clearInterval(watchdog);
       try { lock.release(); } catch { /* connection already gone */ }
     }
   }

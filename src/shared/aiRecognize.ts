@@ -10,7 +10,7 @@ export type AiKind = "code" | "link" | "none";
 
 /** Endpoint strings come from public docs. Model ids were not called from this machine. */
 export interface AiPreset {
-  id: "gemini" | "openrouter" | "groq" | "ollama" | "custom";
+  id: "gemini" | "openrouter" | "groq" | "ollama" | "deepseek" | "sub2" | "custom";
   name: string;
   baseUrl: string;
   model: string;
@@ -55,6 +55,24 @@ export const AI_PRESETS: AiPreset[] = [
     needsKey: false,
     endpointNote: "地址写在 Ollama 的 OpenAI 兼容文档里，不出本机。",
     modelNote: "模型名取决于你本机已经拉取的标签。",
+  },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    baseUrl: "https://api.deepseek.com/v1",
+    model: "deepseek-chat",
+    needsKey: true,
+    endpointNote: "地址是 DeepSeek 的 OpenAI 兼容入口。",
+    modelNote: "模型名未在本机调用过，deepseek-chat / deepseek-reasoner 以控制台为准。",
+  },
+  {
+    id: "sub2",
+    name: "Sub2API 站点",
+    baseUrl: "",
+    model: "",
+    needsKey: true,
+    endpointNote: "填你自己的 Sub2API 站点根地址（OpenAI 兼容，一般以 /v1 结尾）。",
+    modelNote: "模型名未预填，填站点里可用的模型，以站点的模型列表为准。",
   },
   {
     id: "custom",
