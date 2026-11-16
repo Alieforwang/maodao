@@ -3,6 +3,7 @@ import type { Account, AccountDraft, AppState, ProviderId } from "../shared/type
 import { PROVIDER_LIST, PROVIDERS, stripCredentialWhitespace } from "../shared/presets";
 import { AutoThemeIcon, GearIcon, HistoryIcon, InboxIcon, MailIcon, MoonIcon, SunIcon } from "./icons";
 import { AllMail } from "./AllMail";
+import { Select } from "./Select";
 import { Overview } from "./Overview";
 import { formatWhen, remainText, statusOf } from "./format";
 import { AI_PRESETS, presetBaseUrl, type AiFormat } from "../shared/aiRecognize";
@@ -44,10 +45,8 @@ export function App() {
   if (!api) return <p className="empty">请在码到桌面窗口里打开。</p>;
   if (!state) return <p className="empty">正在打开…</p>;
   const listening = state.statuses.filter((item) => item.state === "listening" || item.state === "polling").length;
-  const themeModes = ["system", "light", "dark"] as const;
   const themeMode = state.settings.themeMode;
-  const nextThemeMode = themeModes[(themeModes.indexOf(themeMode) + 1) % themeModes.length];
-  const themeLabel = themeMode === "light" ? "浅色模式" : themeMode === "dark" ? "深色模式" : "跟随系统";
+  const themeLabel = themeMode === "light" ? "浅色" : themeMode === "dark" ? "深色" : "跟随系统";
 
   return (
     <div className="window">
@@ -67,9 +66,14 @@ export function App() {
           <button type="button" data-nav="history" onClick={() => setPage("history")}><HistoryIcon />记录</button>
           <button type="button" data-nav="mail" onClick={() => setPage("mail")}><InboxIcon />全部邮件</button>
           <button type="button" data-nav="settings" onClick={() => setPage("settings")}><GearIcon />设置</button>
-          <button type="button" className="theme-toggle" title="切换主题：跟随系统 → 浅色 → 深色" onClick={() => void api.updateSettings({ themeMode: nextThemeMode })}>
-            {themeMode === "light" ? <SunIcon /> : themeMode === "dark" ? <MoonIcon /> : <AutoThemeIcon />}{themeLabel}
-          </button>
+          <div className="theme-switch">
+            <div className="seg" role="radiogroup" aria-label="主题模式">
+              <button type="button" role="radio" aria-checked={themeMode === "system"} className={themeMode === "system" ? "on" : ""} title="跟随系统" onClick={() => void api.updateSettings({ themeMode: "system" })}><AutoThemeIcon /></button>
+              <button type="button" role="radio" aria-checked={themeMode === "light"} className={themeMode === "light" ? "on" : ""} title="浅色" onClick={() => void api.updateSettings({ themeMode: "light" })}><SunIcon /></button>
+              <button type="button" role="radio" aria-checked={themeMode === "dark"} className={themeMode === "dark" ? "on" : ""} title="深色" onClick={() => void api.updateSettings({ themeMode: "dark" })}><MoonIcon /></button>
+            </div>
+            <span className="theme-name">{themeLabel}</span>
+          </div>
           <div className="nav-foot">{state.paused ? "监听已暂停" : `${listening} 个邮箱在监听`}<br />{state.settings.muteUntil > Date.now() ? <span className="mute-note">静默中 · {remainText(state.settings.muteUntil)}后恢复提醒</span> : "验证码不自动复制"}</div>
         </nav>
         <main className="content">
@@ -466,10 +470,16 @@ function Settings({ state }: { state: AppState }) {
                   <label htmlFor="ai-model">模型</label>
                   {modelCacheEntry && !aiModelManual ? (
                     <div style={{ display: "flex", gap: 8 }}>
-                      <select id="ai-model" value={settings.aiModel} style={{ flex: 1 }} onChange={(event) => set({ aiModel: event.target.value })}>
-                        {settings.aiModel && !modelCacheEntry.models.includes(settings.aiModel) && <option value={settings.aiModel}>{settings.aiModel}（当前，列表外）</option>}
-                        {modelCacheEntry.models.map((model) => <option key={model} value={model}>{model}</option>)}
-                      </select>
+                      <Select
+                        id="ai-model"
+                        style={{ flex: 1 }}
+                        value={settings.aiModel}
+                        onChange={(value) => set({ aiModel: value })}
+                        options={[
+                          ...(settings.aiModel && !modelCacheEntry.models.includes(settings.aiModel) ? [{ value: settings.aiModel, label: `${settings.aiModel}（当前，列表外）` }] : []),
+                          ...modelCacheEntry.models.map((model) => ({ value: model, label: model })),
+                        ]}
+                      />
                       <button className="btn" type="button" disabled={aiSyncing} onClick={() => void runAiSync()}>{aiSyncing ? "同步中…" : "⟳ 同步模型"}</button>
                       <button className="btn" type="button" onClick={() => setAiModelManual(true)}>手动输入</button>
                     </div>

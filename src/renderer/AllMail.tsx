@@ -3,6 +3,7 @@ import type { AppState, ContentKind, MailClass, StoredMail } from "../shared/typ
 import { classLabel, filterMails, highlightCandidates, rerecognizeNote, sourceLabel } from "../shared/mailLog";
 import { CONTENT_KIND_LABELS } from "../shared/spam";
 import { formatWhen } from "./format";
+import { Select } from "./Select";
 
 const CLASSES: Array<{ id: MailClass | "all"; label: string }> = [
   { id: "all", label: "全部" },
@@ -90,10 +91,13 @@ export function AllMail({ state }: { state: AppState }) {
         <button className="btn" type="button" onClick={() => { if (window.confirm("清空这台电脑上的全部邮件记录？")) void api.clearMails(); }}>清空本地邮件记录</button>
       </div>
       <div className="mail-tools">
-        <select aria-label="按邮箱筛选" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-          <option value="all">全部邮箱</option>
-          {state.accounts.map((account) => <option key={account.id} value={account.id}>{account.alias || account.email}</option>)}
-        </select>
+        <Select
+          ariaLabel="按邮箱筛选"
+          style={{ width: 240, flex: "none" }}
+          value={accountId}
+          onChange={setAccountId}
+          options={[{ value: "all", label: "全部邮箱" }, ...state.accounts.map((account) => ({ value: account.id, label: account.alias || account.email }))]}
+        />
         <div className="segment" role="radiogroup" aria-label="按分类筛选">
           {CLASSES.map((item) => (
             <button key={item.id} type="button" className={classification === item.id ? "on" : ""} onClick={() => setClassification(item.id)}>{item.label}</button>
