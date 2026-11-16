@@ -3,20 +3,20 @@ import type { Account, AccountDraft, AppState, ProviderId } from "../shared/type
 import { PROVIDER_LIST, PROVIDERS, stripCredentialWhitespace } from "../shared/presets";
 import { GearIcon, HistoryIcon, InboxIcon, MailIcon } from "./icons";
 import { AllMail } from "./AllMail";
-import { formatWhen, statusOf } from "./format";
+import { formatWhen, remainText, statusOf } from "./format";
 import { AI_PRESETS } from "../shared/aiRecognize";
 import brandIcon from "./brand/icon-32.png";
 import brandLogo from "./brand/maodao-logo.png";
 import { outlookDisplay } from "../shared/outlookMailbox";
 import { OutlookAdd } from "./OutlookAdd";
 
-type Page = "accounts" | "history" | "mail" | "settings";
+type Page = "overview" | "accounts" | "history" | "mail" | "settings";
 type DialogState = { title: string; account?: Account; autoLogin?: boolean } | null;
 
 export function App() {
   const api = window.madao;
   const [state, setState] = useState<AppState | null>(null);
-  const [page, setPage] = useState<Page>("accounts");
+  const [page, setPage] = useState<Page>("overview");
   const [dialog, setDialog] = useState<DialogState>(null);
   const [message, setMessage] = useState("");
 
@@ -57,13 +57,17 @@ export function App() {
       </header>
       <div className="shell">
         <nav className="nav">
+          <button type="button" data-nav="overview" onClick={() => setPage("overview")}><InboxIcon />概览</button>
           <button type="button" data-nav="accounts" onClick={() => setPage("accounts")}><MailIcon />邮箱</button>
           <button type="button" data-nav="history" onClick={() => setPage("history")}><HistoryIcon />记录</button>
           <button type="button" data-nav="mail" onClick={() => setPage("mail")}><InboxIcon />全部邮件</button>
           <button type="button" data-nav="settings" onClick={() => setPage("settings")}><GearIcon />设置</button>
-          <div className="nav-foot">{state.paused ? "监听已暂停" : `${listening} 个邮箱在监听`}<br />验证码不自动复制</div>
+          <div className="nav-foot">{state.paused ? "监听已暂停" : `${listening} 个邮箱在监听`}<br />{state.settings.muteUntil > Date.now() ? <span className="mute-note">静默中 · {remainText(state.settings.muteUntil)}后恢复提醒</span> : "验证码不自动复制"}</div>
         </nav>
         <main className="content">
+          {page === "overview" && (
+            <Overview state={state} onAdd={() => setDialog({ title: "添加账号" })} onRelogin={(account) => setDialog({ title: "重新登录", account, autoLogin: true })} onGo={setPage} />
+          )}
           {page === "accounts" && (
             <Accounts state={state} onAdd={() => setDialog({ title: "添加账号" })} onEdit={(account) => setDialog({ title: "编辑账号", account })} onRelogin={(account) => setDialog({ title: "重新登录", account, autoLogin: true })} />
           )}
@@ -77,11 +81,153 @@ export function App() {
   );
 }
 
+function FirstRunGuide({ onAdd }: { onAdd: () => void }) {
+  const api = window.madao!;
+  return (
+    <section className="ov-hero">
+      <div className="ov-hero-label">第一次使用 · 三步就绪</div>
+      <ol className="guide-steps">
+        <li>
+          <div><strong>添加你的第一个邮箱</strong><p>QQ / 163 / 126 用授权码，Outlook / Gmail 走网页登录。添加完码到就开始监听。</p></div>
+          <button className="btn primary" type="button" onClick={onAdd}>添加邮箱</button>
+        </li>
+        <li>
+          <div><strong>发一条测试通知</strong><p>先确认弹窗位置、提示音都对，不用等真验证码来才发现没声音。</p></div>
+          <button className="btn" type="button" onClick={() => void api.sendTestNotification()}>发送测试通知</button>
+        </li>
+        <li>
+          <div><strong>记住快捷键 Ctrl+Shift+V</strong><p>以后在任何软件里按它，最新验证码直接进剪贴板，连通知都不用点。</p></div>
+        </li>
+      </ol>
+    </section>
+  );
+}
+
+function Overview({ state, onAdd, onRelogin, onGo }: { state: AppState; onAdd: () => void; onRelogin: (account: Account) => void; onGo: (page: Page) => void }) {
+  const api = window.madao!;
+  const [copied, setCopied] = useState(false);
+  const [now] = useState(Date.now());
+  const latest = state.history[0];
+  const listeningCount = state.statuses.filter((item) => item.state === "listening" || item.state === "polling").length;
+  const broken = state.accounts.filter((account) => {
+    const status = state.statuses.find((item) => item.accountId === account.id);
+    return status && (status.state === "auth_failed" || status.state === "error");
+  });
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayCount = state.history.filter((item) => item.receivedAt >= todayStart.getTime()).length;
+  const latestExpired = Boolean(latest?.expiresAt && latest.expiresAt <= now);
+  const copyLatest = () => {
+    if (!latest) return;
+    void api.copyCode(latest.code, "history").then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    });
+  };
+  return (
+    <div>
+      <div className="page-head">
+        <div>
+          <h1>概览</h1>
+          <p className="lede">{state.paused ? "监听已暂停，新邮件不会被检查。" : listeningCount > 0 ? `${listeningCount} 个邮箱在监听，验证码会弹到屏幕右下角。` : "还没有邮箱在监听，先去添加一个邮箱。"}</p>
+        </div>
+        <span style={{ display: "flex", gap: 6 }}>
+          <button className="btn" type="button" onClick={() => void api.sendTestNotification()}>发送测试通知</button>
+          {state.settings.muteUntil > now
+            ? <button className="btn" type="button" onClick={() => void api.setMuted(0)}>取消静默</button>
+            : <button className="btn" type="button" onClick={() => void api.setMuted(30)}>静默 30 分钟</button>}
+        </span>
+      </div>
+
+      {state.accounts.length === 0 && <FirstRunGuide onAdd={onAdd} />}
+
+      {broken.length > 0 && (
+        <div className="ov-alert">
+          <strong>{broken.length} 个邮箱需要处理</strong>
+          {broken.map((account) => {
+            const status = state.statuses.find((item) => item.accountId === account.id);
+            return (
+              <div className="ov-alert-row" key={account.id}>
+                <span>{account.email} · {status?.detail || "连接异常"}，这个邮箱的验证码会漏检</span>
+                {account.provider === "outlook"
+                  ? <button className="btn" type="button" onClick={() => onRelogin(account)}>重新登录</button>
+                  : <button className="btn" type="button" onClick={() => onGo("accounts")}>去邮箱页处理</button>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {latest ? (
+        <section className={`ov-hero ${latestExpired ? "expired" : ""}`}>
+          <div className="ov-hero-label">最新验证码 · {latest.service} · {formatWhen(latest.receivedAt, now)}{latest.expiresAt ? ` · ${remainText(latest.expiresAt, now)}` : ""}</div>
+          <div className="ov-hero-code">{latest.code}</div>
+          <div className="ov-hero-sub">{latest.subject} · 收件 {latest.email}</div>
+          <div className="ov-hero-actions">
+            <button className={`btn primary ${copied ? "copied" : ""}`} type="button" onClick={copyLatest}>{copied ? "已复制 ✓" : "复制验证码"}</button>
+            <span className="ov-hint">在任何软件里按 Ctrl+Shift+V 也能复制（自动跳过已过期的）</span>
+          </div>
+        </section>
+      ) : (
+        <section className="ov-hero">
+          <div className="ov-hero-label">最新验证码</div>
+          <p className="empty" style={{ textAlign: "left", margin: "10px 0 4px" }}>还没有截到验证码。收到后这里会显示最新一条，不用再去翻记录页。</p>
+        </section>
+      )}
+
+      <div className="ov-stats">
+        <div className="ov-stat"><strong>{todayCount}</strong><span>今日截获（近 7 天记录内）</span></div>
+        <div className="ov-stat"><strong>{listeningCount} / {state.accounts.length}</strong><span>邮箱在监听</span></div>
+        <div className="ov-stat"><strong>{state.history.length}</strong><span>记录保留（7 天 / 200 条）</span></div>
+        <div className="ov-stat"><strong>{broken.length}</strong><span>异常邮箱</span></div>
+      </div>
+
+      {state.history.length > 1 && (
+        <>
+          <div className="hist-day">最近验证码</div>
+          <div className="hist-page">
+            {state.history.slice(1, 5).map((item) => (
+              <article className={`hist-card ${item.expiresAt && item.expiresAt <= now ? "expired" : ""}`} key={item.id}>
+                <div className="code">{item.code}</div>
+                <div className="who">{item.service} · {formatWhen(item.receivedAt, now)}</div>
+                <button className="btn" type="button" onClick={() => void api.copyCode(item.code, "history")}>复制</button>
+                <div className="sub">{item.subject}</div>
+                <div className="to">收件邮箱 · {item.email}</div>
+              </article>
+            ))}
+          </div>
+          <button type="button" className="text-link" style={{ marginTop: 10 }} onClick={() => onGo("history")}>查看全部记录</button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Accounts({ state, onAdd, onEdit, onRelogin }: { state: AppState; onAdd: () => void; onEdit: (account: Account) => void; onRelogin: (account: Account) => void }) {
   const api = window.madao!;
+  const [copiedLatest, setCopiedLatest] = useState(false);
+  const listeningCount = state.statuses.filter((item) => item.state === "listening" || item.state === "polling").length;
+  const brokenCount = state.statuses.filter((item) => item.state === "auth_failed" || item.state === "error").length;
+  const latest = state.history[0];
+  const copyLatest = () => {
+    if (!latest) return;
+    void api.copyCode(latest.code, "history").then(() => {
+      setCopiedLatest(true);
+      setTimeout(() => setCopiedLatest(false), 1400);
+    });
+  };
   return (
     <div className="pane-accounts">
       {!state.encryptionAvailable && <p className="banner">这台系统现在不能加密保存授权码。码到不会把授权码明文写进磁盘，本次填写的授权码只留在内存里，退出后需要重新填写。Windows 上会使用 DPAPI。</p>}
+      <div className="overview">
+        <span className="ov-status"><span className={`pulse-dot ${state.paused || listeningCount === 0 ? "off" : ""}`} />{state.paused ? "监听已暂停" : listeningCount > 0 ? `${listeningCount} 个邮箱在监听` : "还没有邮箱在监听"}</span>
+        {brokenCount > 0 && <span className="ov-bad">{brokenCount} 个邮箱登录失效或异常，见下方列表</span>}
+        {latest ? (
+          <span className="ov-latest">最新验证码 <span className="ov-code">{latest.code}</span> {latest.service} · {formatWhen(latest.receivedAt)}
+            <button className={`mini-copy ${copiedLatest ? "copied" : ""}`} type="button" onClick={copyLatest}>{copiedLatest ? "已复制 ✓" : "复制"}</button>
+          </span>
+        ) : <span className="ov-latest">还没有截到验证码，收到后会弹到屏幕右下角。</span>}
+      </div>
       <div className="page-head">
         <div>
           <h1>邮箱</h1>
@@ -124,29 +270,74 @@ function Accounts({ state, onAdd, onEdit, onRelogin }: { state: AppState; onAdd:
   );
 }
 
+function dayLabel(timestamp: number): string {
+  const day = new Date(timestamp);
+  day.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((today.getTime() - day.getTime()) / 86_400_000);
+  if (diff <= 0) return "今天";
+  if (diff === 1) return "昨天";
+  return `${day.getMonth() + 1} 月 ${day.getDate()} 日`;
+}
+
 function History({ state }: { state: AppState }) {
   const api = window.madao!;
+  const [copiedId, setCopiedId] = useState("");
+  const [query, setQuery] = useState("");
+  const [now] = useState(Date.now());
+  const copy = (id: string, code: string) => {
+    void api.copyCode(code, "history").then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((current) => (current === id ? "" : current)), 1400);
+    });
+  };
+  const needle = query.trim().toLowerCase();
+  const visible = state.history.filter((item) => !needle || `${item.service} ${item.subject} ${item.email} ${item.code}`.toLowerCase().includes(needle));
+  const groups: Array<{ label: string; items: typeof visible }> = [];
+  for (const item of visible) {
+    const label = dayLabel(item.receivedAt);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push(item);
+    else groups.push({ label, items: [item] });
+  }
   return (
     <div>
       <div className="page-head">
         <div>
           <h1>记录</h1>
-          <p className="lede">最近 20 条验证码。点一条或按「复制」才写入剪贴板，可以清空。</p>
+          <p className="lede">保留最近 7 天、最多 200 条验证码。点「复制」才写入剪贴板；过期的会标出来。在任何软件里按 Ctrl+Shift+V 复制最新一条未过期的。</p>
         </div>
         <button className="btn" type="button" onClick={() => api.clearHistory()}>清空记录</button>
       </div>
-      {state.history.length === 0 ? <p className="empty">还没有截到验证码。</p> : (
-        <div className="hist-page">
-          {state.history.map((item) => (
-            <article className="hist-card" key={item.id}>
-              <div className="code">{item.code}</div>
-              <div className="who">{item.service} · {formatWhen(item.receivedAt)}</div>
-              <button className="btn" type="button" onClick={() => api.copyCode(item.code, "history")}>复制</button>
-              <div className="sub">{item.subject}</div>
-              <div className="to">收件邮箱 · {item.email}</div>
-            </article>
-          ))}
-        </div>
+      <label className="field hist-search">
+        <span>搜索</span>
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="按服务、标题、邮箱或验证码搜索" />
+      </label>
+      {state.history.length === 0 ? <p className="empty">还没有截到验证码。</p> : visible.length === 0 ? <p className="empty">没有匹配「{query}」的记录。</p> : (
+        groups.map((group) => (
+          <div key={group.label}>
+            <div className="hist-day">{group.label}</div>
+            <div className="hist-page">
+              {group.items.map((item) => {
+                const expired = Boolean(item.expiresAt && item.expiresAt <= now);
+                return (
+                  <article className={`hist-card ${expired ? "expired" : ""}`} key={item.id}>
+                    <div className="code">{item.code}</div>
+                    <div className="who">{item.service} · {formatWhen(item.receivedAt, now)}</div>
+                    <button className={`btn ${copiedId === item.id ? "copied" : ""}`} type="button" onClick={() => copy(item.id, item.code)}>{copiedId === item.id ? "已复制 ✓" : "复制"}</button>
+                    <div className="sub">{item.subject}</div>
+                    <div className="to">收件邮箱 · {item.email}</div>
+                    <div className="to" style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                      {item.copiedAt && <span className="tag ok">已复制</span>}
+                      {item.expiresAt ? (expired ? <span className="tag bad">已过期</span> : <span className="tag">{remainText(item.expiresAt, now)}</span>) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        ))
       )}
     </div>
   );
@@ -177,6 +368,29 @@ function Settings({ state }: { state: AppState }) {
         <div className="group">
           <SetRow title="只提醒带验证码的邮件" text="关掉之后，每封新邮件都会在右下角弹出。认不出验证码的邮件默认不提醒。" on={settings.notifyOnlyCodes} onToggle={() => set({ notifyOnlyCodes: !settings.notifyOnlyCodes })} />
           <SetRow title="提示音" text="验证码通知出现时播放一声短促提示音。" on={settings.sound} onToggle={() => set({ sound: !settings.sound })} />
+          <SetRow title="全局快捷键复制最新验证码" text="在任何软件里按 Ctrl+Shift+V，最新一条验证码直接写入剪贴板，不用去点通知。被其他软件占用时不会生效，可在这里关掉。" on={settings.hotkeyCopyLatest} onToggle={() => set({ hotkeyCopyLatest: !settings.hotkeyCopyLatest })} />
+          <div className="set-row">
+            <div>
+              <h3>静默模式</h3>
+              <p>{settings.muteUntil > Date.now() ? `静默中，${remainText(settings.muteUntil)}后恢复提醒。这段时间的新码照常记录，只是不弹窗不发声。` : "开会、共享屏幕时用：选一段时间，新码照常记录和监听，只是不弹窗不发声。和「暂停监听」不同，暂停是真的断开连接。"}</p>
+            </div>
+            {settings.muteUntil > Date.now() ? (
+              <button className="btn" type="button" onClick={() => void api.setMuted(0)}>取消静默</button>
+            ) : (
+              <span style={{ display: "flex", gap: 6 }}>
+                <button className="btn" type="button" onClick={() => void api.setMuted(30)}>30 分钟</button>
+                <button className="btn" type="button" onClick={() => void api.setMuted(60)}>1 小时</button>
+                <button className="btn" type="button" onClick={() => void api.setMuted(180)}>3 小时</button>
+              </span>
+            )}
+          </div>
+          <div className="set-row">
+            <div>
+              <h3>测试通知</h3>
+              <p>用一条假验证码走一遍完整弹窗，确认位置、提示音和复制都正常。不会记入记录。</p>
+            </div>
+            <button className="btn" type="button" onClick={() => void api.sendTestNotification()}>发送测试通知</button>
+          </div>
           <div className="set-row">
             <div>
               <h3>通知停留</h3>
@@ -188,6 +402,18 @@ function Settings({ state }: { state: AppState }) {
               ))}
             </div>
           </div>
+          <div className="set-row">
+            <div>
+              <h3>复制后自动清空剪贴板</h3>
+              <p>验证码留在剪贴板里会被其他软件读到。时间到时如果剪贴板里还是这个码，就自动清掉；你期间复制了别的东西不会动。</p>
+            </div>
+            <div className="segment" role="radiogroup" aria-label="剪贴板自动清空">
+              {[0, 1, 5, 10].map((value) => (
+                <button key={value} type="button" className={settings.clipboardClearMinutes === value ? "on" : ""} onClick={() => set({ clipboardClearMinutes: value as 0 | 1 | 5 | 10 })}>{value === 0 ? "不清理" : `${value} 分钟`}</button>
+              ))}
+            </div>
+          </div>
+          <SetRow title="顺带巡查垃圾箱" text="有些验证码会被邮箱误投到垃圾箱。每 5 分钟用一条临时连接扫一眼垃圾箱最近的邮件，捞到了照常提醒并标注「来自垃圾箱」。服务器没有垃圾箱时自动跳过。" on={settings.watchJunkFolder} onToggle={() => set({ watchJunkFolder: !settings.watchJunkFolder })} />
         </div>
       </section>
       <section className="set-block">
@@ -195,12 +421,12 @@ function Settings({ state }: { state: AppState }) {
         <div className="group">
           <div className="set-row">
             <div>
-              <h3>只处理刚到的新邮件</h3>
-              <p>启动时不翻旧邮件，避免把历史验证码刷满屏幕。</p>
+              <h3>新邮件时间窗</h3>
+              <p>启动和重连时，只补拉这个时间窗内到达的验证码，太旧的不再弹。窗口越大越不容易漏（比如电脑睡了一觉），代价是可能把已经在别处用过的码再弹一次——有过期标记的会自动跳过。</p>
             </div>
             <div className="segment" role="radiogroup" aria-label="新邮件时间窗">
-              {[3, 5, 10].map((value) => (
-                <button key={value} type="button" className={settings.maxAgeMinutes === value ? "on" : ""} onClick={() => set({ maxAgeMinutes: value as 3 | 5 | 10 })}>{value} 分钟</button>
+              {[3, 5, 10, 15, 30, 60].map((value) => (
+                <button key={value} type="button" className={settings.maxAgeMinutes === value ? "on" : ""} onClick={() => set({ maxAgeMinutes: value as 3 | 5 | 10 | 15 | 30 | 60 })}>{value} 分钟</button>
               ))}
             </div>
           </div>

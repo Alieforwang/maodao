@@ -196,10 +196,11 @@ html[data-scene="tray"] .tray-app,
 .icon-btn:hover { background: var(--hover); color: var(--text); }
 .toast-body { padding: 6px 16px 4px; }
 .code {
-  font-size: 40px;
+  font-family: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 42px;
   line-height: 1.15;
-  font-weight: 600;
-  letter-spacing: 1px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
   font-variant-numeric: tabular-nums;
 }
 .service { margin-top: 2px; font-size: 14px; font-weight: 600; }
@@ -282,9 +283,10 @@ html[data-scene="tray"] .tray-app,
 .hist-item:hover { background: var(--hover); }
 .hist-top { display: flex; align-items: center; gap: 8px; }
 .hist-code {
+  font-family: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   font-size: 16px;
-  font-weight: 650;
-  letter-spacing: 0.4px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
   font-variant-numeric: tabular-nums;
   margin-right: auto;
 }
@@ -765,3 +767,77 @@ html[data-window="tray"] #tray-history { overflow: auto; }
 .meta .bad { color: var(--danger); }
 .dot.bad { background: var(--danger); }
 .hist-card .code { font-size: 28px; }
+
+/* --- redesign P0: toast hierarchy, countdown, tags --- */
+.toast-actions .copy { background: var(--accent); color: var(--on-accent); font-weight: 650; }
+.toast-actions .copy:hover { background: var(--accent-hover); }
+.toast { cursor: pointer; }
+.toast-progress { height: 3px; background: var(--segment); position: relative; z-index: 1; }
+.toast-progress i { display: block; height: 100%; background: var(--accent); transition: width 0.2s linear; }
+.test-tag, .queue-tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); }
+.queue-tag { background: var(--segment); color: var(--text-2); }
+.svc-mark { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; margin-right: 7px; vertical-align: -5px; }
+.chips button { font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; letter-spacing: 1px; }
+
+/* --- redesign P0: accounts overview strip --- */
+.overview { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; background: var(--card); border: 1px solid var(--stroke); border-radius: 8px; padding: 13px 16px; margin-bottom: 14px; }
+.overview .ov-status { display: flex; align-items: center; gap: 8px; font-weight: 650; font-size: 13.5px; }
+.pulse-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); position: relative; flex: none; }
+.pulse-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--ok); opacity: 0.35; animation: ov-pulse 2s ease-out infinite; }
+.pulse-dot.off { background: var(--text-3); }
+.pulse-dot.off::after { display: none; }
+@keyframes ov-pulse { 0% { transform: scale(0.55); opacity: 0.5; } 100% { transform: scale(1.15); opacity: 0; } }
+.overview .ov-latest { display: flex; align-items: center; gap: 10px; margin-left: auto; font-size: 12.5px; color: var(--text-2); }
+.overview .ov-code { font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; font-size: 21px; font-weight: 700; letter-spacing: 2px; color: var(--text); }
+.overview .ov-bad { color: var(--danger); font-weight: 650; font-size: 12.5px; }
+.mini-copy.copied, .btn.copied { color: var(--ok); border-color: var(--ok); }
+
+/* --- redesign batch 2: validity, expiry, mute, history states --- */
+.service .remain { margin-left: 10px; font-size: 12px; font-weight: 650; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.service .remain.urgent { color: var(--danger); }
+.service .remain.expired { color: var(--danger); }
+.tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 9px; background: var(--segment); color: var(--text-2); white-space: nowrap; }
+.tag.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.tag.bad { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.tag.warn { background: color-mix(in srgb, var(--danger) 8%, transparent); color: var(--danger); }
+.hist-card.expired { opacity: 0.55; }
+.hist-card.expired .code { text-decoration: line-through; text-decoration-thickness: 1px; }
+.hist-day { font-size: 12.5px; font-weight: 700; color: var(--text-2); margin: 16px 0 8px; }
+.hist-search { margin-bottom: 6px; }
+.mute-note { color: var(--accent); font-weight: 650; }
+
+/* --- redesign batch 3: overview home --- */
+.ov-alert { background: color-mix(in srgb, var(--danger) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--stroke)); border-radius: 8px; padding: 12px 16px; margin-bottom: 14px; }
+.ov-alert strong { color: var(--danger); font-size: 13.5px; }
+.ov-alert-row { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: var(--text-2); }
+.ov-hero { background: var(--card); border: 1px solid var(--stroke); border-radius: 10px; padding: 18px 20px; margin-bottom: 14px; }
+.ov-hero.expired { opacity: 0.6; }
+.ov-hero-label { font-size: 12.5px; font-weight: 650; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.ov-hero-code { font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; font-size: 52px; font-weight: 700; letter-spacing: 4px; line-height: 1.2; margin: 6px 0 2px; }
+.ov-hero.expired .ov-hero-code { text-decoration: line-through; text-decoration-thickness: 2px; }
+.ov-hero-sub { font-size: 12.5px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-hero-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.ov-hint { font-size: 12px; color: var(--text-3); }
+.ov-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 6px; }
+.ov-stat { background: var(--card); border: 1px solid var(--stroke); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.ov-stat strong { font-size: 20px; font-weight: 700; }
+.ov-stat span { font-size: 11.5px; color: var(--text-2); }
+
+/* --- redesign batch 4: first-run guide --- */
+.guide-steps { list-style: none; margin: 12px 0 2px; padding: 0; display: flex; flex-direction: column; gap: 14px; counter-reset: guide; }
+.guide-steps li { display: flex; align-items: center; gap: 14px; justify-content: space-between; }
+.guide-steps li > div { display: flex; flex-direction: column; gap: 2px; }
+.guide-steps strong { font-size: 13.5px; }
+.guide-steps p { margin: 0; font-size: 12.5px; color: var(--text-2); }
+.guide-steps .btn { flex: none; }
+
+/* --- spam scoring: list bar + detail ledger --- */
+.spam-bar { display: inline-flex; align-items: center; gap: 6px; margin-top: 3px; }
+.spam-bar i { display: inline-block; width: 72px; height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--danger), var(--danger)) no-repeat var(--segment); background-size: var(--w, 100%) 100%; position: relative; }
+.spam-bar i::after { content: ""; position: absolute; inset: 0; border-radius: 2px; background: var(--segment); z-index: -1; }
+.spam-bar em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--danger); }
+.spam-ledger { background: var(--segment); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+.spam-ledger ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.spam-ledger li { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--text-2); }
+.spam-ledger li b.plus { color: var(--danger); }
+.spam-ledger li b.minus { color: var(--ok); }

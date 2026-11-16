@@ -29,7 +29,7 @@ export interface Settings {
   sound: boolean;
   /** 0 means the toast stays until dismissed. */
   notificationSeconds: 0 | 15 | 30;
-  maxAgeMinutes: 3 | 5 | 10;
+  maxAgeMinutes: 3 | 5 | 10 | 15 | 30 | 60;
   outlookClientId: string;
   outlookTenant: string;
   oauthRedirectPort: number;
@@ -46,6 +46,14 @@ export interface Settings {
   aiModel: string;
   /** 高级：连高置信的规则结果也再问一次模型，但模型不能推翻高置信规则。 */
   aiEveryMessage: boolean;
+  /** 全局快捷键（Ctrl+Shift+V）复制最新一条验证码，默认开。 */
+  hotkeyCopyLatest: boolean;
+  /** 静默模式截止时间（epoch ms）：在此之前新码只记录、不弹窗不发声。0 表示未静默。 */
+  muteUntil: number;
+  /** 是否顺带巡查垃圾箱，捞被误投递的验证码。默认开。 */
+  watchJunkFolder: boolean;
+  /** 复制验证码后多少分钟自动清空剪贴板（仅当剪贴板里还是这个码时）。0 表示不清理。 */
+  clipboardClearMinutes: 0 | 1 | 5 | 10;
   /** 本地全部邮件保留天数。 */
   mailRetentionDays: 7 | 30 | 90;
   /** 每个邮箱在本地最多保留多少封。 */
@@ -84,6 +92,10 @@ export interface HistoryItem {
   from: string;
   messageId: string;
   receivedAt: number;
+  /** receivedAt + validity window stated in the mail. Null when the mail does not say. */
+  expiresAt?: number | null;
+  /** When the user last copied this code (any surface). */
+  copiedAt?: number;
 }
 
 export type ConnectionState =
@@ -113,7 +125,7 @@ export interface AccountDraft {
   secret?: string;
 }
 
-export type CopyReason = "notification-click" | "copy-button" | "history" | "tray";
+export type CopyReason = "notification-click" | "copy-button" | "history" | "tray" | "hotkey";
 
 export interface ToastPayload {
   id: string;
@@ -132,6 +144,18 @@ export interface ToastPayload {
   selectedIndex?: number;
   verifyUrl?: string | null;
   domain?: string;
+  /** When the mail arrived, epoch ms. Used for the real timestamp instead of a hard-coded “刚刚”. */
+  receivedAt?: number;
+  /** When the code itself expires per the mail's own wording. Null when unstated. */
+  expiresAt?: number | null;
+  /** How many more notifications are queued behind this one. */
+  queueLength?: number;
+  /** Synthetic test notification: never written to history. */
+  test?: boolean;
+  /** Account alert (e.g. login expired) instead of a mail notification. */
+  alert?: "auth";
+  /** The code was found in the junk folder, not the inbox. */
+  fromJunk?: boolean;
 }
 
 export interface AppState {
@@ -168,6 +192,10 @@ export const DEFAULT_SETTINGS: Settings = {
   aiBaseUrl: "",
   aiModel: "",
   aiEveryMessage: false,
+  hotkeyCopyLatest: true,
+  muteUntil: 0,
+  watchJunkFolder: true,
+  clipboardClearMinutes: 5,
   mailRetentionDays: 30,
   mailRetentionCount: 500,
 };
@@ -189,11 +217,39 @@ export interface MailSummary {
   display: string | null;
   candidates: string[];
   domain: string;
+  /** receivedAt + validity window stated in the mail. Null when unstated. */
+  expiresAt?: number | null;
+  /** Content-axis classification from the local spam scorer. Absent on records stored before it existed. */
+  contentKind?: ContentKind;
+  /** 0–100 junk risk from the local spam scorer. */
+  spamScore?: number;
+  /** Explainable ledger behind spamScore. */
+  spamReasons?: SpamReason[];
 }
 
 export interface StoredMail extends MailSummary {
   text: string;
   displays: string[];
+  /** Authentication/header snapshot captured at ingest; older records do not have it. */
+  headers?: MailHeaders;
+}
+
+export type AuthResult = "pass" | "fail" | "softfail" | "neutral" | "none";
+
+export interface MailHeaders {
+  spf?: AuthResult;
+  dkim?: AuthResult;
+  dmarc?: AuthResult;
+  returnPathDomain?: string;
+  listUnsubscribe?: boolean;
+}
+
+/** Content axis, orthogonal to MailClass (the code axis): what kind of mail this is. */
+export type ContentKind = "important" | "promo" | "subscription" | "normal" | "spammy";
+
+export interface SpamReason {
+  label: string;
+  delta: number;
 }
 
 export const COPY_REASONS: readonly CopyReason[] = [
@@ -201,6 +257,7 @@ export const COPY_REASONS: readonly CopyReason[] = [
   "copy-button",
   "history",
   "tray",
+  "hotkey",
 ];
 
 export function isCopyReason(value: unknown): value is CopyReason {

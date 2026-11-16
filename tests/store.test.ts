@@ -58,7 +58,7 @@ describe("凭据存储", () => {
     expect(fs.existsSync(path.join(directory, "secrets.json"))).toBe(false);
   });
 
-  it("历史记录只保留 20 条", () => {
+  it("历史记录保留 7 天内、最多 200 条（改版前是只留 20 条）", () => {
     const store = tempStore(hexBox());
     for (let index = 0; index < 25; index += 1) {
       store.addHistory({
@@ -73,7 +73,7 @@ describe("凭据存储", () => {
         receivedAt: index,
       });
     }
-    expect(store.history).toHaveLength(20);
+    expect(store.history).toHaveLength(25);
     expect(store.history[0].code).toBe("100024");
   });
 

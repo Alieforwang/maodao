@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, nativeImage, nativeTheme, screen, shell, Tray, Menu } from "electron";
+import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, nativeImage, nativeTheme, screen, shell, Tray, Menu } from "electron";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -18,6 +18,7 @@ import { runHarness } from "./harness.js";
 import { AppUpdater } from "./updater.js";
 import { openEmbeddedOutlookLogin } from "./outlookWindow.js";
 import { INITIAL_UPDATE_STATUS } from "../shared/updates.js";
+import { classifySpam } from "../shared/spam.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.MADAO_DEV === "1";
@@ -55,8 +56,15 @@ function createMonitor(): MailMonitor {
   hasSeen: (id) => store.hasSeen(id),
   remember: (id) => store.remember(id),
   onStatus: (status) => {
+    const previous = statuses.get(status.accountId);
     statuses.set(status.accountId, status);
     broadcast();
+    refreshTrayMenu();
+    // 登录失效只在状态刚翻转的那一刻主动弹一次，之后靠托盘角标和主窗口总览持续提醒，不反复打扰。
+    if (status.state === "auth_failed" && previous?.state !== "auth_failed" && !e2e) {
+      const account = store.accounts.find((item) => item.id === status.accountId);
+      if (account) sendAuthAlert(account.email, status.detail);
+    }
   },
   onNotify: (event) => deliver(event),
   onMail: (mail) => {
@@ -137,7 +145,7 @@ function createMain(): BrowserWindow {
 }
 
 function showToast(payload: ToastPayload): void {
-  latestToast = payload;
+  latestToast = { ...payload, queueLength: toastQueue.length };
   if (!toastWindow || toastWindow.isDestroyed()) {
     toastWindow = new BrowserWindow({
       width: 380,
@@ -164,7 +172,7 @@ function showToast(payload: ToastPayload): void {
   }
   const reveal = () => {
     placeToast();
-    toastWindow?.webContents.send("toast", payload);
+    toastWindow?.webContents.send("toast", latestToast);
     toastWindow?.showInactive();
     toastOpen = true;
   };
@@ -205,6 +213,7 @@ function deliver(event: NotifyEvent): void {
       from: event.from,
       messageId: event.messageId,
       receivedAt: event.receivedAt,
+      expiresAt: event.expiresAt ?? null,
     };
     store.addHistory(item);
   }
@@ -223,12 +232,88 @@ function deliver(event: NotifyEvent): void {
     selectedIndex: event.selectedIndex,
     verifyUrl: event.verifyUrl,
     domain: event.domain,
+    receivedAt: event.receivedAt,
+    expiresAt: event.expiresAt ?? null,
+    fromJunk: Boolean(event.folder && event.folder !== "INBOX"),
   };
   toastMail.set(event.messageId, { from: event.from, subject: event.subject, text: event.text || "", html: event.html, recipient: event.email, expected: event.code, kind: event.kind === "link" ? "link" : event.code ? "code" : "none" });
   broadcast();
   refreshTrayMenu();
+  // 静默模式：只记录，不弹窗不发声。暂停（断开）之外的第三种安静方式。
+  if (Date.now() < store.settings.muteUntil) {
+    logInfo("静默模式：新通知只记录未弹窗", { mutedUntil: store.settings.muteUntil });
+    return;
+  }
+  if (toastOpen) {
+    // 同一服务的新码顶掉排队中的旧码，旧码过期了也不该再弹出来。
+    for (let i = toastQueue.length - 1; i >= 0; i -= 1) {
+      if (payload.code && toastQueue[i].domain && toastQueue[i].domain === payload.domain) toastQueue.splice(i, 1);
+    }
+    toastQueue.push(payload);
+  } else showToast(payload);
+}
+
+/** Synthetic notification so users can verify popup position, sound and copying without waiting for a real code. Never enters history. */
+function sendTestToast(): void {
+  const payload: ToastPayload = {
+    id: `test-${Date.now()}`,
+    code: "123456",
+    display: "123456",
+    service: "测试通知",
+    subject: "这是一条测试通知，用来确认弹窗位置、提示音和复制都正常。",
+    email: store.accounts[0]?.email || "尚未添加邮箱",
+    sound: store.settings.sound && !e2e,
+    seconds: store.settings.notificationSeconds,
+    kind: "code",
+    candidates: ["123456"],
+    displays: ["123456"],
+    selectedIndex: 0,
+    verifyUrl: null,
+    domain: "",
+    receivedAt: Date.now(),
+    test: true,
+  };
+  toastMail.set(payload.id, { from: "test@maodao.local", subject: payload.subject, text: payload.subject, recipient: payload.email, expected: payload.code, kind: "code" });
   if (toastOpen) toastQueue.push(payload);
   else showToast(payload);
+}
+
+const HOTKEY = "CommandOrControl+Shift+V";
+let hotkeyRegistered = false;
+
+function copyLatestCode(): void {
+  const now = Date.now();
+  const latest = store.history.find((item) => !item.expiresAt || item.expiresAt > now);
+  if (!latest) {
+    if (tray && store.history.length > 0) {
+      tray.setToolTip("码到 — 最近的验证码都已过期");
+      setTimeout(() => refreshTrayMenu(), 2600);
+    }
+    return;
+  }
+  clipboard.writeText(latest.code);
+  scheduleClipboardClear(latest.code);
+  store.markCopied(latest.code);
+  broadcast();
+  logInfo("已按全局快捷键复制最新验证码", { reason: "hotkey", length: latest.code.length });
+  if (tray) {
+    tray.setToolTip(`码到 — 已复制 ${latest.service} 的验证码`);
+    setTimeout(() => refreshTrayMenu(), 2600);
+  }
+}
+
+function applyHotkey(): void {
+  try {
+    if (store.settings.hotkeyCopyLatest && !hotkeyRegistered) {
+      hotkeyRegistered = globalShortcut.register(HOTKEY, copyLatestCode);
+      if (!hotkeyRegistered) logInfo("全局快捷键被占用，注册失败", { hotkey: HOTKEY });
+    } else if (!store.settings.hotkeyCopyLatest && hotkeyRegistered) {
+      globalShortcut.unregister(HOTKEY);
+      hotkeyRegistered = false;
+    }
+  } catch (error) {
+    logInfo("全局快捷键注册失败", { message: error instanceof Error ? error.message : "error" });
+  }
 }
 
 function toggleTrayWindow(): void {
@@ -277,7 +362,50 @@ function toggleTrayWindow(): void {
 function refreshTrayMenu(): void {
   if (!tray) return;
   const listening = [...statuses.values()].filter((status) => status.state === "listening" || status.state === "polling").length;
-  tray.setToolTip(paused ? "码到 — 已暂停" : `码到 — ${listening} 个邮箱在监听`);
+  const broken = [...statuses.values()].filter((status) => status.state === "auth_failed").length;
+  if (broken > 0) tray.setToolTip(`码到 — ⚠ ${broken} 个邮箱登录失效，验证码会漏检`);
+  else tray.setToolTip(paused ? "码到 — 已暂停" : `码到 — ${listening} 个邮箱在监听`);
+}
+
+/** One-shot alert when an account flips into auth_failed: the failure used to sit silently in the main window. */
+function sendAuthAlert(email: string, detail: string): void {
+  const payload: ToastPayload = {
+    id: `alert-auth-${email}`,
+    code: null,
+    display: null,
+    service: "登录失效",
+    subject: `${email} 的授权已失效${detail ? `（${detail}）` : ""}，这个邮箱的验证码会漏检。点「去重新登录」处理。`,
+    email,
+    sound: store.settings.sound && !e2e,
+    seconds: store.settings.notificationSeconds,
+    kind: "mail",
+    candidates: [],
+    displays: [],
+    selectedIndex: 0,
+    verifyUrl: null,
+    domain: "",
+    receivedAt: Date.now(),
+    alert: "auth",
+  };
+  if (toastOpen) toastQueue.push(payload);
+  else showToast(payload);
+}
+
+let clipboardClearTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** After a code copy, clear the clipboard later — only if it still holds exactly that code. */
+function scheduleClipboardClear(code: string): void {
+  if (clipboardClearTimer) clearTimeout(clipboardClearTimer);
+  clipboardClearTimer = null;
+  const minutes = store.settings.clipboardClearMinutes;
+  if (!minutes) return;
+  clipboardClearTimer = setTimeout(() => {
+    clipboardClearTimer = null;
+    if (clipboard.readText() === code) {
+      clipboard.writeText("");
+      logInfo("已按设置自动清空剪贴板中的验证码", { minutes });
+    }
+  }, minutes * 60_000);
 }
 
 function resourceFile(name: string): string {
@@ -368,6 +496,14 @@ function wireIpc(): void {
     if (!mail) return null;
     if (mail.source === "user") return mail;
     const found = await monitor.review(mail);
+    const spam = classifySpam({
+      from: mail.from,
+      subject: mail.subject,
+      text: mail.text,
+      headers: mail.headers,
+      classification: found.classification,
+      userBlocked: Boolean(store.settings.senderPrefs?.[mail.domain]?.muted),
+    });
     const updated = store.recordMail({
       ...mail,
       classification: found.classification,
@@ -378,6 +514,9 @@ function wireIpc(): void {
       candidates: found.candidates,
       displays: found.displays,
       domain: found.domain,
+      contentKind: spam.contentKind,
+      spamScore: spam.spamScore,
+      spamReasons: spam.spamReasons,
     }, true);
     broadcast();
     return updated;
@@ -417,8 +556,13 @@ function wireIpc(): void {
     const settings = store.updateSettings(patch);
     applyLogin(settings.openAtLogin);
     if ("autoCheckUpdates" in patch) updater?.schedule();
+    if ("hotkeyCopyLatest" in patch) applyHotkey();
     broadcast();
     return settings;
+  });
+  ipcMain.handle("test-toast", () => {
+    sendTestToast();
+    return true;
   });
   ipcMain.handle("history-clear", () => {
     store.clearHistory();
@@ -433,8 +577,18 @@ function wireIpc(): void {
   ipcMain.handle("copy-code", (_event, code: unknown, reason: unknown) => {
     if (!isCopyReason(reason) || typeof code !== "string" || !/^[A-Za-z0-9]{4,8}$/.test(code)) return "";
     clipboard.writeText(code);
+    scheduleClipboardClear(code);
+    store.markCopied(code);
+    broadcast();
     logInfo("已按用户操作复制验证码", { reason, length: code.length });
     return clipboard.readText();
+  });
+  ipcMain.handle("set-muted", (_event, minutes: unknown) => {
+    const value = typeof minutes === "number" && Number.isFinite(minutes) ? Math.min(24 * 60, Math.max(0, Math.round(minutes))) : 0;
+    const settings = store.updateSettings({ muteUntil: value > 0 ? Date.now() + value * 60_000 : 0 });
+    broadcast();
+    refreshTrayMenu();
+    return settings.muteUntil;
   });
   ipcMain.handle("copy-text", (_event, text: unknown) => {
     if (typeof text !== "string" || !text.trim() || text.length > 80) return "";
@@ -659,6 +813,7 @@ app.on("second-instance", () => {
 
 app.on("before-quit", () => {
   quitting = true;
+  globalShortcut.unregisterAll();
   monitor?.stopAll();
 });
 
@@ -671,6 +826,7 @@ if (smoke) {
   store.load();
   if (e2e) nativeTheme.themeSource = "light";
   wireIpc();
+  applyHotkey();
   nativeTheme.on("updated", broadcast);
   mainWindow = createMain();
   createTray();

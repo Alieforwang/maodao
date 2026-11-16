@@ -5,9 +5,10 @@ import { decideNotification, describeRecognition, type MailRecognition } from ".
 import { extractFromMail } from "../shared/extract.js";
 import { explainImapError, isAuthFailure } from "../shared/redact.js";
 import { parseRawMail } from "../shared/mail.js";
+import { classifySpam } from "../shared/spam.js";
 import { imapLoginUser } from "../shared/outlookMailbox.js";
 import { needsImapId, normalizePassword } from "../shared/presets.js";
-import type { Account, AccountStatus, SecretPayload, Settings, StoredMail } from "../shared/types.js";
+import type { Account, AccountStatus, MailHeaders, SecretPayload, Settings, StoredMail } from "../shared/types.js";
 import { refreshOutlookToken } from "./oauth.js";
 import { logInfo } from "./log.js";
 
@@ -26,6 +27,9 @@ export interface NotifyEvent {
   messageId: string;
   receivedAt: number;
   kind?: "code" | "maybe" | "link" | "mail";
+  /** Folder the message came from; anything other than INBOX is the junk sweep. */
+  folder?: string;
+  expiresAt?: number | null;
   candidates?: string[];
   displays?: string[];
   selectedIndex?: number;
@@ -200,6 +204,7 @@ export class MailMonitor {
         mode: idle ? "idle" : "poll",
       });
       logInfo(idle ? "开始 IDLE" : "开始轮询", { accountId: account.id, host: account.host });
+      if (this.deps.getSettings().watchJunkFolder) void this.junkLoop(account, secret, signal);
       await this.watch(client, account, signal);
       if (!signal.aborted) throw new Error("连接已断开");
     } catch (error) {
@@ -299,6 +304,45 @@ export class MailMonitor {
     }
   }
 
+  /** Verification codes are sometimes misdelivered to the junk folder. A separate short-lived connection
+   * sweeps it every few minutes; the main connection stays parked on INBOX/IDLE. */
+  private async junkLoop(account: Account, secret: SecretPayload, signal: AbortSignal): Promise<void> {
+    await sleep(20_000, signal).catch(() => undefined);
+    while (!signal.aborted) {
+      await this.junkSweep(account, secret).catch((error) => {
+        logInfo("垃圾箱巡查失败", { accountId: account.id, message: error instanceof Error ? error.message : "error" });
+      });
+      await sleep(5 * 60_000, signal).catch(() => undefined);
+    }
+  }
+
+  private async junkSweep(account: Account, secret: SecretPayload): Promise<void> {
+    const client = new ImapFlow(buildImapOptions(account, secret)) as IdleClient;
+    if (needsImapId(account.host)) forceImapId(client);
+    client.on("error", () => undefined);
+    try {
+      await client.connect();
+      const boxes = await client.list();
+      const junk = boxes.find((box) => box.specialUse === "\\Junk")
+        || boxes.find((box) => /junk|spam|bulk|垃圾/i.test(`${box.name} ${box.path}`) && box.path !== "INBOX");
+      if (!junk) return;
+      const lock = await client.getMailboxLock(junk.path);
+      try {
+        const mailbox = client.mailbox && typeof client.mailbox === "object" ? client.mailbox : undefined;
+        const baseline = Math.max(0, Number(mailbox?.uidNext || 1) - 1);
+        if (baseline < 1) return;
+        const range = `${Math.max(1, baseline - 14)}:${baseline}`;
+        const fetched = await client.fetchAll(range, { uid: true, internalDate: true, envelope: true, source: true }, { uid: true });
+        const list = (Array.isArray(fetched) ? (fetched as Fetched[]) : []).sort((a, b) => a.uid - b.uid);
+        for (const message of list) await this.handle(account, message, baseline, true, junk.path);
+      } finally {
+        try { lock.release(); } catch { /* ignore */ }
+      }
+    } finally {
+      try { client.close(); } catch { /* ignore */ }
+    }
+  }
+
   private async lookupAi(id: string, subject: string, from: string, text: string, html: string, recipient?: string): Promise<AiVerdict | null> {
     const settings = this.deps.getSettings();
     const rule = extractFromMail({ subject, body: text, html, from });
@@ -335,12 +379,13 @@ export class MailMonitor {
     return verdict;
   }
 
-  private async handle(account: Account, message: Fetched, baseline: number, startup: boolean): Promise<void> {
+  private async handle(account: Account, message: Fetched, baseline: number, startup: boolean, folder = "INBOX"): Promise<void> {
     let subject = message.envelope?.subject || "";
     let from = envelopeFrom(message);
     let text = "";
     let html = "";
     let messageId = "";
+    let mailHeaders: MailHeaders = {};
     let receivedAt = message.internalDate?.getTime() || Date.now();
     if (message.source) {
       const parsed = await parseRawMail(message.source);
@@ -349,9 +394,10 @@ export class MailMonitor {
       text = parsed.text;
       html = parsed.html;
       messageId = parsed.messageId;
+      mailHeaders = parsed.headers;
       if (parsed.date) receivedAt = parsed.date.getTime();
     }
-    const id = messageId || `${account.id}:${message.uid}`;
+    const id = messageId || `${account.id}:${folder}:${message.uid}`;
     const settings = this.deps.getSettings();
     const now = Date.now();
     const domain = senderDomain(from);
@@ -389,6 +435,14 @@ export class MailMonitor {
         senderPrefs: settings.senderPrefs,
         ai,
       });
+      const spam = classifySpam({
+        from,
+        subject,
+        text,
+        headers: mailHeaders,
+        classification: found.classification,
+        userBlocked: muted,
+      });
       this.deps.onMail?.({
         id,
         accountId: account.id,
@@ -405,6 +459,11 @@ export class MailMonitor {
         candidates: found.candidates,
         displays: found.displays,
         domain: found.domain,
+        expiresAt: found.expiresAt,
+        contentKind: spam.contentKind,
+        spamScore: spam.spamScore,
+        spamReasons: spam.spamReasons,
+        headers: mailHeaders,
       });
     }
     this.deps.remember(id);
@@ -413,6 +472,7 @@ export class MailMonitor {
     this.deps.onNotify({
       accountId: account.id,
       email: account.email,
+      folder,
       code: decision.code,
       display: decision.display,
       service: decision.service,
@@ -421,6 +481,7 @@ export class MailMonitor {
       messageId: id,
       receivedAt,
       kind: decision.reason === "all-mail" ? "mail" : decision.reason,
+      expiresAt: decision.expiresAt,
       candidates: decision.candidates.map((item) => item.code),
       displays: decision.candidates.map((item) => item.display),
       selectedIndex: decision.selectedIndex,

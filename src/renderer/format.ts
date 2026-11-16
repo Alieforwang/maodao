@@ -1,3 +1,23 @@
+/** "还剩 4:32" style remaining-time label; empty when no expiry is known. */
+export function remainText(expiresAt: number | null | undefined, now = Date.now()): string {
+  if (!expiresAt) return "";
+  const left = expiresAt - now;
+  if (left <= 0) return "已过期";
+  const totalSeconds = Math.ceil(left / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes >= 60) return `还剩 ${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分`;
+  return `还剩 ${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+/** Group a bare numeric code for scanning: 738291 → "738 291". Displays that already carry separators stay untouched. */
+export function groupDisplay(display: string): string {
+  if (/[- ]/.test(display)) return display;
+  if (/^\d{6}$/.test(display)) return `${display.slice(0, 3)} ${display.slice(3)}`;
+  if (/^\d{8}$/.test(display)) return `${display.slice(0, 4)} ${display.slice(4)}`;
+  return display;
+}
+
 export function formatWhen(timestamp: number, now = Date.now()): string {
   const date = new Date(timestamp);
   const today = new Date(now);

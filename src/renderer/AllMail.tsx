@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import type { AppState, MailClass, StoredMail } from "../shared/types";
+import type { AppState, ContentKind, MailClass, StoredMail } from "../shared/types";
 import { classLabel, filterMails, highlightCandidates, rerecognizeNote, sourceLabel } from "../shared/mailLog";
+import { CONTENT_KIND_LABELS } from "../shared/spam";
 import { formatWhen } from "./format";
 
 const CLASSES: Array<{ id: MailClass | "all"; label: string }> = [
@@ -11,10 +12,20 @@ const CLASSES: Array<{ id: MailClass | "all"; label: string }> = [
   { id: "none", label: "非验证码" },
 ];
 
+const CONTENT_KINDS: Array<{ id: ContentKind | "all"; label: string }> = [
+  { id: "all", label: "全部类型" },
+  { id: "important", label: "重要通知" },
+  { id: "promo", label: "推广" },
+  { id: "subscription", label: "订阅" },
+  { id: "normal", label: "普通" },
+  { id: "spammy", label: "疑似垃圾" },
+];
+
 export function AllMail({ state }: { state: AppState }) {
   const api = window.madao!;
   const [accountId, setAccountId] = useState("all");
   const [classification, setClassification] = useState<MailClass | "all">("all");
+  const [contentKind, setContentKind] = useState<ContentKind | "all">("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [detail, setDetail] = useState<StoredMail | null>(null);
@@ -22,9 +33,14 @@ export function AllMail({ state }: { state: AppState }) {
   const [note, setNote] = useState("");
 
   const rows = useMemo(
-    () => filterMails(state.mails, { accountId, classification, search }),
-    [state.mails, accountId, classification, search],
+    () => filterMails(state.mails, { accountId, classification, search }).filter((mail) => contentKind === "all" || mail.contentKind === contentKind),
+    [state.mails, accountId, classification, search, contentKind],
   );
+  const kindCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const mail of state.mails) if (mail.contentKind) counts.set(mail.contentKind, (counts.get(mail.contentKind) || 0) + 1);
+    return counts;
+  }, [state.mails]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -69,6 +85,11 @@ export function AllMail({ state }: { state: AppState }) {
             <button key={item.id} type="button" className={classification === item.id ? "on" : ""} onClick={() => setClassification(item.id)}>{item.label}</button>
           ))}
         </div>
+        <div className="segment" role="radiogroup" aria-label="按内容类型筛选">
+          {CONTENT_KINDS.map((item) => (
+            <button key={item.id} type="button" className={contentKind === item.id ? "on" : ""} onClick={() => setContentKind(item.id)}>{item.label}{item.id !== "all" && kindCounts.get(item.id) ? ` ${kindCounts.get(item.id)}` : ""}</button>
+          ))}
+        </div>
         <input aria-label="搜索发件人或标题" placeholder="搜索发件人或标题" value={search} onChange={(event) => setSearch(event.target.value)} />
         <label className="hint">保留
           <select aria-label="保留天数" value={state.settings.mailRetentionDays} onChange={(event) => void api.updateSettings({ mailRetentionDays: Number(event.target.value) as 7 | 30 | 90 })}>
@@ -89,7 +110,10 @@ export function AllMail({ state }: { state: AppState }) {
               <strong>{mail.subject || "（无标题）"}</strong>
               <em>{mail.email}</em>
               <em>{mail.from}</em>
-              <b>{classLabel(mail.classification)} · {mail.confidence === "high" ? "高" : mail.confidence === "medium" ? "中" : "低"} · {sourceLabel(mail.source)}</b>
+              <b>{classLabel(mail.classification)} · {mail.confidence === "high" ? "高" : mail.confidence === "medium" ? "中" : "低"} · {sourceLabel(mail.source)}{mail.contentKind ? ` · ${CONTENT_KIND_LABELS[mail.contentKind]}` : ""}</b>
+              {typeof mail.spamScore === "number" && mail.spamScore >= 40 && (
+                <span className="spam-bar" title={`垃圾风险 ${mail.spamScore} 分`}><i style={{ width: `${mail.spamScore}%` }} /><em>{mail.spamScore}</em></span>
+              )}
             </button>
           ))}
         </div>
@@ -99,6 +123,22 @@ export function AllMail({ state }: { state: AppState }) {
               <h2>{detail.subject || "（无标题）"}</h2>
               <p className="hint">{formatWhen(detail.receivedAt)} · {detail.email} · {detail.from}</p>
               <p className="hint">{classLabel(detail.classification)} · {detail.display || detail.code || "没有验证码"} · {sourceLabel(detail.source)}</p>
+              {typeof detail.spamScore === "number" ? (
+                <div className="spam-ledger">
+                  <p className="hint" style={{ margin: 0 }}>
+                    内容类型 · {detail.contentKind ? CONTENT_KIND_LABELS[detail.contentKind] : "普通"} · 垃圾风险 <strong>{detail.spamScore}</strong> 分
+                    {detail.headers && (detail.headers.spf || detail.headers.dkim || detail.headers.dmarc) ? ` · SPF ${detail.headers.spf || "—"} / DKIM ${detail.headers.dkim || "—"} / DMARC ${detail.headers.dmarc || "—"}` : ""}
+                  </p>
+                  {detail.spamReasons && detail.spamReasons.length > 0 ? (
+                    <ul>
+                      {detail.spamReasons.map((reason, index) => (
+                        <li key={index}><span>{reason.label}</span><b className={reason.delta > 0 ? "plus" : "minus"}>{reason.delta > 0 ? `+${reason.delta}` : reason.delta}</b></li>
+                      ))}
+                    </ul>
+                  ) : <p className="hint" style={{ margin: "4px 0 0" }}>没有命中任何风险项。</p>}
+                  <p className="hint" style={{ margin: "4px 0 0" }}>分数只用于标记和折叠，永远不会自动删信。</p>
+                </div>
+              ) : <p className="hint">这封是旧记录，入库时还没有垃圾评估；点下方「重新识别」可以补上。</p>}
               <div className="mail-body">
                 {highlightCandidates(detail.text, [...detail.candidates, detail.display || "", detail.code || ""]).map((part, index) => part.hit ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>)}
               </div>
