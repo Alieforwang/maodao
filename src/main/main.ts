@@ -10,7 +10,9 @@ import { OutlookLogin, readJwtClaims, type OAuthEvent, type OAuthStartOptions, t
 import { chooseSavedMailbox, findDuplicateOutlook, mapOutlookFailure, readIdentity } from "../shared/outlookMailbox.js";
 import { PROVIDERS } from "../shared/presets.js";
 import { verifyOutlookMailbox } from "./outlookVerify.js";
-import { requestAiVerdict, statusLine } from "../shared/aiRecognize.js";
+import { aiNeedsKey, fetchModelList, requestAiClassification, requestAiVerdict, statusLine } from "../shared/aiRecognize.js";
+import { AI_DAILY_LIMIT } from "../shared/learning.js";
+import type { StoredMail } from "../shared/types.js";
 import { toRedactedFixture } from "../shared/fixtureExport.js";
 import { isCopyReason, type AccountStatus, type AppState, type HistoryItem, type ToastPayload } from "../shared/types.js";
 import { logInfo } from "./log.js";
@@ -68,14 +70,54 @@ function createMonitor(): MailMonitor {
   },
   onNotify: (event) => deliver(event),
   onMail: (mail) => {
+    const isNew = !store.getMail(mail.id);
     store.recordMail(mail);
+    if (isNew && mail.contentKind === "spammy") store.noteJudgedSpam(mail.receivedAt);
     broadcast();
+  },
+  getSpamAdjust: (from) => store.spamAdjustFor(from),
+  onGrayZone: (mail) => {
+    void adjudicateGrayZone(mail);
   },
   onAiStatus: (message) => {
     aiStatus = message;
     broadcast();
   },
   });
+}
+
+const grayInFlight = new Set<string>();
+
+/**
+ * Gray-zone adjudication: a mail the local scorer could not confidently
+ * place (40–69) is sent to the configured model for a second opinion. Runs
+ * after the mail is already stored, so it never delays notifications.
+ */
+async function adjudicateGrayZone(mail: StoredMail): Promise<void> {
+  const settings = store.settings;
+  if (!settings.aiEnabled || !settings.aiFilter) return;
+  if (aiNeedsKey(settings.aiBaseUrl) && !store.hasAiKey()) return;
+  if (!settings.aiBaseUrl.trim() || !settings.aiModel.trim()) return;
+  if (grayInFlight.has(mail.id)) return;
+  if (store.learningSummary().aiToday.calls >= AI_DAILY_LIMIT) return;
+  grayInFlight.add(mail.id);
+  const started = Date.now();
+  try {
+    const result = await requestAiClassification({
+      baseUrl: settings.aiBaseUrl,
+      apiKey: store.getAiKey(),
+      model: settings.aiModel,
+      format: settings.aiFormat,
+      subject: mail.subject,
+      from: mail.from,
+      text: mail.text,
+      recipient: mail.email,
+    });
+    if ("failure" in result) return;
+    if (store.applyAiClassification(mail.id, result.classification, Date.now() - started)) broadcast();
+  } finally {
+    grayInFlight.delete(mail.id);
+  }
 }
 
 function theme(): "light" | "dark" {
@@ -105,6 +147,7 @@ function snapshot(): AppState {
     update: updateStatus,
     aiKeySaved: store.hasAiKey(),
     aiStatus,
+    learning: store.learningSummary(),
   };
 }
 
@@ -480,6 +523,11 @@ function wireIpc(): void {
     broadcast();
     return updated || null;
   });
+  ipcMain.handle("mail-correct-spam", (_event, id: unknown, isSpam: unknown) => {
+    const result = store.correctMailSpam(typeof id === "string" ? id : "", Boolean(isSpam));
+    broadcast();
+    return result || null;
+  });
   ipcMain.handle("mail-clear", () => {
     store.clearMails();
     broadcast();
@@ -511,6 +559,7 @@ function wireIpc(): void {
       headers: mail.headers,
       classification: found.classification,
       userBlocked: Boolean(store.settings.senderPrefs?.[mail.domain]?.muted),
+      adjust: store.spamAdjustFor(mail.from),
     });
     const updated = store.recordMail({
       ...mail,
@@ -525,6 +574,7 @@ function wireIpc(): void {
       contentKind: spam.contentKind,
       spamScore: spam.spamScore,
       spamReasons: spam.spamReasons,
+      aiJudged: false,
     }, true);
     broadcast();
     return updated;
@@ -562,6 +612,22 @@ function wireIpc(): void {
           : statusLine(result.failure, result.detail));
     broadcast();
     return aiStatus;
+  });
+  ipcMain.handle("ai-models-sync", async () => {
+    const settings = store.settings;
+    if (!settings.aiBaseUrl.trim()) return { error: "请先填写接口地址" };
+    if (aiNeedsKey(settings.aiBaseUrl) && !store.hasAiKey()) return { error: "请先填写并保存密钥" };
+    const result = await fetchModelList({
+      baseUrl: settings.aiBaseUrl,
+      apiKey: store.getAiKey(),
+      format: settings.aiFormat,
+    });
+    if ("failure" in result) return { error: result.failure };
+    const cacheKey = `${settings.aiPreset}|${settings.aiBaseUrl}|${settings.aiFormat}`;
+    const at = Date.now();
+    store.updateSettings({ aiModelCache: { ...settings.aiModelCache, [cacheKey]: { models: result.models, at } } });
+    broadcast();
+    return { models: result.models, at };
   });
   ipcMain.handle("settings", (_event, patch) => {
     const settings = store.updateSettings(patch);

@@ -31,6 +31,7 @@ export function AllMail({ state }: { state: AppState }) {
   const [detail, setDetail] = useState<StoredMail | null>(null);
   const [draftCode, setDraftCode] = useState("");
   const [note, setNote] = useState("");
+  const [learnBanner, setLearnBanner] = useState("");
 
   const rows = useMemo(
     () => filterMails(state.mails, { accountId, classification, search }).filter((mail) => contentKind === "all" || mail.contentKind === contentKind),
@@ -48,6 +49,7 @@ export function AllMail({ state }: { state: AppState }) {
       return;
     }
     let cancelled = false;
+    setLearnBanner("");
     void api.getMail(selectedId).then((mail) => {
       if (cancelled) return;
       setDetail(mail);
@@ -63,6 +65,18 @@ export function AllMail({ state }: { state: AppState }) {
       setDetail(updated);
       setDraftCode(updated.code || "");
       setNote(kind === "none" ? "已记为非验证码，这个发件域名不再弹出。" : "已记下，并更新了这个发件域名的偏好。");
+    }
+  };
+
+  const correctSpam = async (isSpam: boolean) => {
+    if (!detail) return;
+    const from = detail.from;
+    const result = await api.correctMailSpam(detail.id, isSpam);
+    if (result) {
+      setDetail(result.mail);
+      const { learned } = result;
+      const fmt = (delta: number) => (delta > 0 ? `+${delta}` : `${delta}`);
+      setLearnBanner(`✓ 已记住：${from} ${isSpam ? "是垃圾邮件" : "不是垃圾"}。这是第 ${learned.corrections} 个学习样本（进度 ${learned.progress}/100，当前学习率 ${(learned.rate * 100).toFixed(1)}%）；这个发件人今后的邮件本地评分 ${fmt(learned.senderDelta)} 分，同域名 ${fmt(learned.domainDelta)} 分。判错随时再纠正回来。`);
     }
   };
 
@@ -109,6 +123,7 @@ export function AllMail({ state }: { state: AppState }) {
                 ) : null}
                 {mail.contentKind && mail.contentKind !== "normal" && <span className="chip">{CONTENT_KIND_LABELS[mail.contentKind]}</span>}
                 {typeof mail.spamScore === "number" && mail.spamScore >= 40 && <span className="chip chip-risk">风险 {mail.spamScore}</span>}
+                {mail.aiJudged && <span className="chip chip-ai">✦ AI 裁决</span>}
               </span>
             </button>
           ))}
@@ -117,6 +132,7 @@ export function AllMail({ state }: { state: AppState }) {
           {!detail ? <p className="empty">选一封邮件查看正文。这里只显示纯文本，不会加载远程图片。</p> : (
             <>
               <h2>{detail.subject || "（无标题）"}</h2>
+              {learnBanner && <div className="learn-banner">{learnBanner}</div>}
               <p className="hint">{formatWhen(detail.receivedAt)} · {detail.email} · {detail.from}</p>
               <p className="hint">{classLabel(detail.classification)} · {detail.display || detail.code || "没有验证码"} · {sourceLabel(detail.source)}</p>
               {typeof detail.spamScore === "number" ? (
@@ -128,7 +144,7 @@ export function AllMail({ state }: { state: AppState }) {
                   {detail.spamReasons && detail.spamReasons.length > 0 ? (
                     <ul>
                       {detail.spamReasons.map((reason, index) => (
-                        <li key={index}><span>{reason.label}</span><b className={reason.delta > 0 ? "plus" : "minus"}>{reason.delta > 0 ? `+${reason.delta}` : reason.delta}</b></li>
+                        <li key={index} className={reason.label.startsWith("AI 裁决") ? "ai-line" : reason.label.startsWith("你的纠正") ? "learn-line" : ""}><span>{reason.label}</span><b className={reason.delta > 0 ? "plus" : "minus"}>{reason.delta > 0 ? `+${reason.delta}` : reason.delta}</b></li>
                       ))}
                     </ul>
                   ) : <p className="hint" style={{ margin: "4px 0 0" }}>没有命中任何风险项。</p>}
@@ -155,6 +171,11 @@ export function AllMail({ state }: { state: AppState }) {
                 <button className="btn" type="button" onClick={() => void correct("none")}>标为非验证码</button>
               </div>
               <div className="dialog-actions">
+                {detail.contentKind === "spammy" ? (
+                  <button className="btn" type="button" onClick={() => void correctSpam(false)}>标为非垃圾</button>
+                ) : (
+                  <button className="btn" type="button" onClick={() => void correctSpam(true)}>标为疑似垃圾</button>
+                )}
                 <button className="btn" type="button" onClick={() => void api.rerecognizeMail(detail.id).then((mail) => { if (mail) { setDetail(mail); setDraftCode(mail.code || ""); setNote(rerecognizeNote(mail.source)); } })}>重新识别</button>
                 <button className="btn" type="button" onClick={() => void api.exportMail(detail.id).then(() => setNote("脱敏样本已复制，可以贴进样本集。"))}>导出脱敏样本</button>
               </div>

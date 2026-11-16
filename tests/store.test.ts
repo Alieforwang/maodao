@@ -160,3 +160,67 @@ describe("凭据存储", () => {
     expect(store.settings.aiEnabled).toBe(false);
   });
 });
+
+describe("学习层（1.4.0）", () => {
+  function storedMail(store: AccountStore, partial: Record<string, unknown> = {}) {
+    return store.recordMail({
+      id: "mail-1",
+      accountId: "a1",
+      email: "me@qq.com",
+      from: "云服务 <billing@cloud.example>",
+      subject: "账单",
+      text: "正文",
+      receivedAt: Date.now(),
+      classification: "none",
+      confidence: "low",
+      source: "rule",
+      code: null,
+      display: null,
+      candidates: [],
+      displays: [],
+      domain: "cloud.example",
+      contentKind: "spammy",
+      spamScore: 82,
+      spamReasons: [{ label: "营销话术命中", delta: 10 }],
+      ...partial,
+    } as never);
+  }
+
+  it("correctMailSpam 标为非垃圾：降分改类型、写入发件人记忆、计数推翻", () => {
+    const store = tempStore(unavailableSecretBox);
+    storedMail(store);
+    const result = store.correctMailSpam("mail-1", false);
+    expect(result?.mail.contentKind).toBe("normal");
+    expect(result?.mail.spamScore).toBeLessThanOrEqual(30);
+    expect(result?.learned.corrections).toBe(1);
+    expect(store.spamAdjustFor("云服务 <billing@cloud.example>").sender).toBeLessThan(0);
+    expect(store.learningSummary().precision.overturned).toBe(1);
+    expect(result?.mail.spamReasons?.at(-1)?.label).toContain("你的纠正");
+  });
+
+  it("applyAiClassification 写入裁决、账本与每日计数", () => {
+    const store = tempStore(unavailableSecretBox);
+    storedMail(store, { contentKind: "normal", spamScore: 55 });
+    const updated = store.applyAiClassification("mail-1", { contentKind: "spammy", spamScore: 78, reason: "仿冒域名" }, 1200);
+    expect(updated?.contentKind).toBe("spammy");
+    expect(updated?.aiJudged).toBe(true);
+    expect(updated?.spamReasons?.at(-1)?.label).toContain("AI 裁决");
+    const summary = store.learningSummary();
+    expect(summary.aiToday.calls).toBe(1);
+    expect(summary.aiToday.changed).toBe(1);
+    expect(summary.precision.judged).toBe(1);
+  });
+
+  it("学习状态随配置持久化，重载后仍在", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "madao-"));
+    dirs.push(directory);
+    const store = new AccountStore(directory, unavailableSecretBox);
+    store.load();
+    storedMail(store);
+    store.correctMailSpam("mail-1", false);
+    const reloaded = new AccountStore(directory, unavailableSecretBox);
+    reloaded.load();
+    expect(reloaded.learning.corrections).toBe(1);
+    expect(reloaded.spamAdjustFor("billing@cloud.example").sender).toBeLessThan(0);
+  });
+});

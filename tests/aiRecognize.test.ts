@@ -4,8 +4,11 @@ import {
   buildAiUserText,
   cachedOrThrottled,
   interpretAiContent,
+  fetchModelList,
   mergeRuleAndAi,
+  modelsUrl,
   rememberAiCall,
+  requestAiClassification,
   requestAiVerdict,
   shouldAskAi,
   type AiMemory,
@@ -177,5 +180,82 @@ describe("AI 识别", () => {
     const merged = mergeRuleAndAi(rule, { kind: "code", code: "daily", confidence: "high", reason: "", accepted: true });
     expect(merged.code).not.toBe("daily");
     expect(merged.keyword).not.toBe("ai");
+  });
+});
+
+describe("AI 分类裁决与模型同步", () => {
+  function rawJson(body: unknown, status = 200): Response {
+    return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  }
+
+  it("requestAiClassification 解析类型、风险分与理由", async () => {
+    const fetchImpl = (async () =>
+      rawJson({ choices: [{ message: { content: '{"contentKind":"spammy","spamScore":82,"reason":"仿冒银行域名"}' } }] })) as typeof fetch;
+    const result = await requestAiClassification({
+      baseUrl: "https://api.example.com/v1",
+      apiKey: "sk-test",
+      model: "m",
+      subject: "账户异常",
+      from: "Bank <a@bank-secure.example>",
+      text: "点击链接验证",
+      fetchImpl,
+    });
+    expect("classification" in result).toBe(true);
+    if ("classification" in result) {
+      expect(result.classification.contentKind).toBe("spammy");
+      expect(result.classification.spamScore).toBe(82);
+      expect(result.classification.reason).toBe("仿冒银行域名");
+    }
+  });
+
+  it("requestAiClassification 拒绝未知的内容类型", async () => {
+    const fetchImpl = (async () =>
+      rawJson({ choices: [{ message: { content: '{"contentKind":"weird","spamScore":10}' } }] })) as typeof fetch;
+    const result = await requestAiClassification({
+      baseUrl: "https://api.example.com/v1",
+      apiKey: "sk-test",
+      model: "m",
+      subject: "s",
+      from: "f",
+      text: "t",
+      fetchImpl,
+    });
+    expect("failure" in result).toBe(true);
+  });
+
+  it("modelsUrl 在根地址不以 /v1 结尾时补 /v1/models", () => {
+    expect(modelsUrl("https://api.deepseek.com/v1")).toBe("https://api.deepseek.com/v1/models");
+    expect(modelsUrl("https://api.deepseek.com/anthropic")).toBe("https://api.deepseek.com/anthropic/v1/models");
+    expect(modelsUrl("https://sub.example.com/")).toBe("https://sub.example.com/v1/models");
+  });
+
+  it("fetchModelList 返回去重排序后的模型名", async () => {
+    const fetchImpl = (async () => rawJson({ data: [{ id: "b-model" }, { id: "a-model" }, { id: "a-model" }] })) as typeof fetch;
+    const result = await fetchModelList({ baseUrl: "https://api.example.com/v1", apiKey: "sk-test", fetchImpl });
+    expect("models" in result).toBe(true);
+    if ("models" in result) expect(result.models).toEqual(["a-model", "b-model"]);
+  });
+
+  it("fetchModelList 把 404 说成站点没开放 /models 接口", async () => {
+    const fetchImpl = (async () => rawJson({}, 404)) as typeof fetch;
+    const result = await fetchModelList({ baseUrl: "https://api.example.com/v1", apiKey: "sk-test", fetchImpl });
+    expect("failure" in result).toBe(true);
+    if ("failure" in result) expect(result.failure).toContain("没有开放 /models");
+  });
+});
+
+describe("fetchModelList 的 /anthropic 回退", () => {
+  it("Claude 格式根地址 404 时，自动试同站点的 OpenAI /v1/models", async () => {
+    const seen: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      seen.push(String(url));
+      if (String(url) === "https://api.deepseek.com/v1/models") {
+        return new Response(JSON.stringify({ data: [{ id: "deepseek-chat" }] }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return new Response("{}", { status: 404 });
+    }) as unknown as typeof fetch;
+    const result = await fetchModelList({ baseUrl: "https://api.deepseek.com/anthropic", apiKey: "sk-test", format: "anthropic", fetchImpl });
+    expect("models" in result).toBe(true);
+    expect(seen.at(-1)).toBe("https://api.deepseek.com/v1/models");
   });
 });

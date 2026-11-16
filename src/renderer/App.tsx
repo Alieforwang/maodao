@@ -3,6 +3,7 @@ import type { Account, AccountDraft, AppState, ProviderId } from "../shared/type
 import { PROVIDER_LIST, PROVIDERS, stripCredentialWhitespace } from "../shared/presets";
 import { AutoThemeIcon, GearIcon, HistoryIcon, InboxIcon, MailIcon, MoonIcon, SunIcon } from "./icons";
 import { AllMail } from "./AllMail";
+import { Overview } from "./Overview";
 import { formatWhen, remainText, statusOf } from "./format";
 import { AI_PRESETS, presetBaseUrl, type AiFormat } from "../shared/aiRecognize";
 import brandIcon from "./brand/icon-32.png";
@@ -84,128 +85,6 @@ export function App() {
         </main>
       </div>
       {dialog && <AccountDialog state={state} dialog={dialog} message={message} setMessage={setMessage} onClose={() => { setDialog(null); setMessage(""); api.cancelOAuth(); }} />}
-    </div>
-  );
-}
-
-function FirstRunGuide({ onAdd }: { onAdd: () => void }) {
-  const api = window.madao!;
-  return (
-    <section className="ov-hero">
-      <div className="ov-hero-label">第一次使用 · 三步就绪</div>
-      <ol className="guide-steps">
-        <li>
-          <div><strong>添加你的第一个邮箱</strong><p>QQ / 163 / 126 用授权码，Outlook / Gmail 走网页登录。添加完码到就开始监听。</p></div>
-          <button className="btn primary" type="button" onClick={onAdd}>添加邮箱</button>
-        </li>
-        <li>
-          <div><strong>发一条测试通知</strong><p>先确认弹窗位置、提示音都对，不用等真验证码来才发现没声音。</p></div>
-          <button className="btn" type="button" onClick={() => void api.sendTestNotification()}>发送测试通知</button>
-        </li>
-        <li>
-          <div><strong>记住快捷键 Ctrl+Shift+V</strong><p>以后在任何软件里按它，最新验证码直接进剪贴板，连通知都不用点。</p></div>
-        </li>
-      </ol>
-    </section>
-  );
-}
-
-function Overview({ state, onAdd, onRelogin, onGo }: { state: AppState; onAdd: () => void; onRelogin: (account: Account) => void; onGo: (page: Page) => void }) {
-  const api = window.madao!;
-  const [copied, setCopied] = useState(false);
-  const [now] = useState(Date.now());
-  const latest = state.history[0];
-  const listeningCount = state.statuses.filter((item) => item.state === "listening" || item.state === "polling").length;
-  const broken = state.accounts.filter((account) => {
-    const status = state.statuses.find((item) => item.accountId === account.id);
-    return status && (status.state === "auth_failed" || status.state === "error");
-  });
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayCount = state.history.filter((item) => item.receivedAt >= todayStart.getTime()).length;
-  const latestExpired = Boolean(latest?.expiresAt && latest.expiresAt <= now);
-  const copyLatest = () => {
-    if (!latest) return;
-    void api.copyCode(latest.code, "history").then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1400);
-    });
-  };
-  return (
-    <div>
-      <div className="page-head">
-        <div>
-          <h1>概览</h1>
-          <p className="lede">{state.paused ? "监听已暂停，新邮件不会被检查。" : listeningCount > 0 ? `${listeningCount} 个邮箱在监听，验证码会弹到屏幕右下角。` : "还没有邮箱在监听，先去添加一个邮箱。"}</p>
-        </div>
-        <span style={{ display: "flex", gap: 6 }}>
-          <button className="btn" type="button" onClick={() => void api.sendTestNotification()}>发送测试通知</button>
-          {state.settings.muteUntil > now
-            ? <button className="btn" type="button" onClick={() => void api.setMuted(0)}>取消静默</button>
-            : <button className="btn" type="button" onClick={() => void api.setMuted(30)}>静默 30 分钟</button>}
-        </span>
-      </div>
-
-      {state.accounts.length === 0 && <FirstRunGuide onAdd={onAdd} />}
-
-      {broken.length > 0 && (
-        <div className="ov-alert">
-          <strong>{broken.length} 个邮箱需要处理</strong>
-          {broken.map((account) => {
-            const status = state.statuses.find((item) => item.accountId === account.id);
-            return (
-              <div className="ov-alert-row" key={account.id}>
-                <span>{account.email} · {status?.detail || "连接异常"}，这个邮箱的验证码会漏检</span>
-                {account.provider === "outlook"
-                  ? <button className="btn" type="button" onClick={() => onRelogin(account)}>重新登录</button>
-                  : <button className="btn" type="button" onClick={() => onGo("accounts")}>去邮箱页处理</button>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {latest ? (
-        <section className={`ov-hero ${latestExpired ? "expired" : ""}`}>
-          <div className="ov-hero-label">最新验证码 · {latest.service} · {formatWhen(latest.receivedAt, now)}{latest.expiresAt ? ` · ${remainText(latest.expiresAt, now)}` : ""}</div>
-          <div className="ov-hero-code">{latest.code}</div>
-          <div className="ov-hero-sub">{latest.subject} · 收件 {latest.email}</div>
-          <div className="ov-hero-actions">
-            <button className={`btn primary ${copied ? "copied" : ""}`} type="button" onClick={copyLatest}>{copied ? "已复制 ✓" : "复制验证码"}</button>
-            <span className="ov-hint">在任何软件里按 Ctrl+Shift+V 也能复制（自动跳过已过期的）</span>
-          </div>
-        </section>
-      ) : (
-        <section className="ov-hero">
-          <div className="ov-hero-label">最新验证码</div>
-          <p className="empty" style={{ textAlign: "left", margin: "10px 0 4px" }}>还没有截到验证码。收到后这里会显示最新一条，不用再去翻记录页。</p>
-        </section>
-      )}
-
-      <div className="ov-stats">
-        <div className="ov-stat"><strong>{todayCount}</strong><span>今日截获（近 7 天记录内）</span></div>
-        <div className="ov-stat"><strong>{listeningCount} / {state.accounts.length}</strong><span>邮箱在监听</span></div>
-        <div className="ov-stat"><strong>{state.history.length}</strong><span>记录保留（7 天 / 200 条）</span></div>
-        <div className="ov-stat"><strong>{broken.length}</strong><span>异常邮箱</span></div>
-      </div>
-
-      {state.history.length > 1 && (
-        <>
-          <div className="hist-day">最近验证码</div>
-          <div className="hist-page">
-            {state.history.slice(1, 5).map((item) => (
-              <article className={`hist-card ${item.expiresAt && item.expiresAt <= now ? "expired" : ""}`} key={item.id}>
-                <div className="code">{item.code}</div>
-                <div className="who">{item.service} · {formatWhen(item.receivedAt, now)}</div>
-                <button className="btn" type="button" onClick={() => void api.copyCode(item.code, "history")}>复制</button>
-                <div className="sub">{item.subject}</div>
-                <div className="to">收件邮箱 · {item.email}</div>
-              </article>
-            ))}
-          </div>
-          <button type="button" className="text-link" style={{ marginTop: 10 }} onClick={() => onGo("history")}>查看全部记录</button>
-        </>
-      )}
     </div>
   );
 }
@@ -359,6 +238,29 @@ function Settings({ state }: { state: AppState }) {
   const [aiSavedNote, setAiSavedNote] = useState("");
   const [aiTesting, setAiTesting] = useState(false);
   const [aiTestNote, setAiTestNote] = useState("");
+  const [aiSyncing, setAiSyncing] = useState(false);
+  const [aiSyncNote, setAiSyncNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [aiModelManual, setAiModelManual] = useState(false);
+  const modelCacheEntry = settings.aiModelCache[`${settings.aiPreset}|${settings.aiBaseUrl}|${settings.aiFormat}`]
+    || Object.entries(settings.aiModelCache).find(([key]) => key.endsWith(`|${settings.aiBaseUrl}|${settings.aiFormat}`))?.[1];
+  const runAiSync = async () => {
+    if (aiKeyInput.trim()) {
+      await api.setAiKey(aiKeyInput.trim());
+      setAiKeyInput("");
+    }
+    setAiSyncing(true);
+    setAiSyncNote(null);
+    try {
+      const result = await api.syncAiModels();
+      if ("error" in result) setAiSyncNote({ ok: false, text: `同步失败：${result.error}` });
+      else {
+        setAiModelManual(false);
+        setAiSyncNote({ ok: true, text: `已同步 · 共 ${result.models.length} 个模型` });
+      }
+    } finally {
+      setAiSyncing(false);
+    }
+  };
   const saveAi = async () => {
     if (aiKeyInput.trim()) {
       await api.setAiKey(aiKeyInput.trim());
@@ -562,7 +464,24 @@ function Settings({ state }: { state: AppState }) {
                 </div>
                 <div className="field" style={{ marginTop: 8 }}>
                   <label htmlFor="ai-model">模型</label>
-                  <input id="ai-model" value={settings.aiModel} placeholder="模型名" onChange={(event) => set({ aiModel: event.target.value.trim(), aiPreset: "custom" })} />
+                  {modelCacheEntry && !aiModelManual ? (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <select id="ai-model" value={settings.aiModel} style={{ flex: 1 }} onChange={(event) => set({ aiModel: event.target.value })}>
+                        {settings.aiModel && !modelCacheEntry.models.includes(settings.aiModel) && <option value={settings.aiModel}>{settings.aiModel}（当前，列表外）</option>}
+                        {modelCacheEntry.models.map((model) => <option key={model} value={model}>{model}</option>)}
+                      </select>
+                      <button className="btn" type="button" disabled={aiSyncing} onClick={() => void runAiSync()}>{aiSyncing ? "同步中…" : "⟳ 同步模型"}</button>
+                      <button className="btn" type="button" onClick={() => setAiModelManual(true)}>手动输入</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input id="ai-model" style={{ flex: 1 }} value={settings.aiModel} placeholder="模型名" onChange={(event) => set({ aiModel: event.target.value.trim(), aiPreset: "custom" })} />
+                      <button className="btn" type="button" disabled={aiSyncing} onClick={() => void runAiSync()}>{aiSyncing ? "同步中…" : "⟳ 同步模型"}</button>
+                      {modelCacheEntry && <button className="btn" type="button" onClick={() => setAiModelManual(false)}>用同步列表</button>}
+                    </div>
+                  )}
+                  {modelCacheEntry && !aiSyncNote && <p className="hint" style={{ marginTop: 4 }}>已同步 · 共 {modelCacheEntry.models.length} 个 · {new Date(modelCacheEntry.at).toLocaleString()} 更新。同步只拉模型名，不产生调用费用。</p>}
+                  {aiSyncNote && <p className="hint" style={{ marginTop: 4, color: aiSyncNote.ok ? "var(--ok)" : "var(--danger)" }}>{aiSyncNote.text}</p>}
                 </div>
                 <div className="field" style={{ marginTop: 8 }}>
                   <label htmlFor="ai-key">API 密钥</label>
@@ -580,6 +499,14 @@ function Settings({ state }: { state: AppState }) {
                 {aiTestNote && <p className="hint" style={{ marginTop: 8, color: aiTestNote.startsWith("测试通过") ? "var(--ok)" : "var(--danger)" }}>{aiTestNote}</p>}
               </div>
             </div>
+          )}
+          {aiOpen && (
+            <>
+              <SetRow title="AI 参与邮件筛选" text="本地评分落在灰区（40–69 分）或类型拿不准时，把标题和正文片段发给模型裁决类型与风险，结果记入判定账本。每天上限 30 封，超限只用本地结果。" on={settings.aiFilter} onToggle={() => set({ aiFilter: !settings.aiFilter })} />
+              <p className="hint" style={{ padding: "0 16px 12px" }}>
+                学习指标 · 精确率 {state.learning.precision.value === null ? "样本不足" : `${Math.round(state.learning.precision.value * 100)}%`}（{state.learning.precision.judged - state.learning.precision.overturned}/{state.learning.precision.judged}）· 学习进度 {state.learning.progress} / {state.learning.goal} · 当前学习率 {(state.learning.rate * 100).toFixed(1)}% · 累计纠正 {state.learning.corrections} 次
+              </p>
+            </>
           )}
           {aiOpen && (
             <details className="advanced">

@@ -14,6 +14,18 @@ import {
 import { applyCorrection, correctionPreference, pruneMails, sanitizeMailText } from "../shared/mailLog.js";
 import { mergeOutlookAccounts } from "../shared/outlookMailbox.js";
 import { PROVIDERS, normalizePassword } from "../shared/presets.js";
+import { senderDomain } from "../shared/extract.js";
+import {
+  EMPTY_LEARNING,
+  applySpamCorrection,
+  learningProgress,
+  recordAiCall,
+  recordJudgedSpam,
+  summarizeLearning,
+  type LearningState,
+  type LearningSummary,
+} from "../shared/learning.js";
+import type { AiClassification } from "../shared/aiRecognize.js";
 
 interface ConfigFile {
   version: 1;
@@ -21,6 +33,7 @@ interface ConfigFile {
   accounts: Account[];
   history: HistoryItem[];
   seen: string[];
+  learning: LearningState;
 }
 
 const EMPTY: ConfigFile = {
@@ -29,7 +42,12 @@ const EMPTY: ConfigFile = {
   accounts: [],
   history: [],
   seen: [],
+  learning: structuredClone(EMPTY_LEARNING),
 };
+
+export function senderEmailOf(from: string): string {
+  return (from.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || "").toLowerCase();
+}
 
 /** History keeps the newest 200 entries and nothing older than 7 days (was: newest 20). */
 export function pruneHistory(items: HistoryItem[], now = Date.now()): HistoryItem[] {
@@ -68,6 +86,13 @@ export class AccountStore {
         accounts: parsed.accounts || [],
         history: pruneHistory(parsed.history || []),
         seen: (parsed.seen || []).slice(-300),
+        learning: {
+          ...structuredClone(EMPTY_LEARNING),
+          ...(parsed.learning || {}),
+          senderAdjust: parsed.learning?.senderAdjust || {},
+          domainAdjust: parsed.learning?.domainAdjust || {},
+          days: parsed.learning?.days || {},
+        },
       };
       const merged = mergeOutlookAccounts(this.config.accounts);
       if (merged.reassign.length) {
@@ -208,6 +233,110 @@ export class AccountStore {
       this.persistConfig();
     }
     return this.recordMail(updated, true);
+  }
+
+  get learning(): LearningState {
+    return this.config.learning;
+  }
+
+  learningSummary(now = Date.now()): LearningSummary {
+    return summarizeLearning(this.config.learning, now);
+  }
+
+  /** Learned score offsets for a sender, fed into classifySpam at ingest. */
+  spamAdjustFor(from: string): { sender?: number; domain?: number } {
+    const sender = this.config.learning.senderAdjust[senderEmailOf(from)];
+    const domain = this.config.learning.domainAdjust[senderDomain(from)];
+    return {
+      ...(sender ? { sender } : {}),
+      ...(domain ? { domain } : {}),
+    };
+  }
+
+  noteJudgedSpam(now = Date.now()): void {
+    recordJudgedSpam(this.config.learning, now);
+    this.persistConfig();
+  }
+
+  noteAiCall(changed: boolean, ms: number, now = Date.now()): void {
+    recordAiCall(this.config.learning, { changed, ms, now });
+    this.persistConfig();
+  }
+
+  /**
+   * Apply the AI's gray-zone verdict to a stored mail and account for it in
+   * the learning stats. Returns the updated mail, or undefined when gone.
+   */
+  applyAiClassification(id: string, classification: AiClassification, ms: number, now = Date.now()): StoredMail | undefined {
+    const current = this.mails.find((mail) => mail.id === id);
+    if (!current) return undefined;
+    const oldScore = current.spamScore ?? 0;
+    const oldKind = current.contentKind;
+    const changed = classification.contentKind !== oldKind || Math.abs(classification.spamScore - oldScore) >= 10;
+    const updated: StoredMail = {
+      ...current,
+      contentKind: classification.contentKind,
+      spamScore: classification.spamScore,
+      aiJudged: true,
+      spamReasons: [
+        ...(current.spamReasons || []),
+        { label: `AI 裁决：${classification.reason || "模型综合判断"}`, delta: classification.spamScore - oldScore },
+      ],
+    };
+    if (classification.contentKind === "spammy" && oldKind !== "spammy") recordJudgedSpam(this.config.learning, now);
+    recordAiCall(this.config.learning, { changed, ms, now });
+    this.persistConfig();
+    return this.recordMail(updated, true);
+  }
+
+  /**
+   * The user says a mail is / is not junk. Updates the mail, teaches the
+   * learning layer, and reports what was learned for the feedback banner.
+   */
+  correctMailSpam(
+    id: string,
+    isSpam: boolean,
+    now = Date.now(),
+  ): { mail: StoredMail; learned: { senderDelta: number; domainDelta: number; rate: number; corrections: number; progress: number } } | undefined {
+    const current = this.mails.find((mail) => mail.id === id);
+    if (!current) return undefined;
+    const wasJudgedSpam = current.contentKind === "spammy";
+    const learned = applySpamCorrection(this.config.learning, {
+      sender: senderEmailOf(current.from),
+      domain: current.domain || senderDomain(current.from),
+      isSpam,
+      wasJudgedSpam,
+      now,
+    });
+    const oldScore = current.spamScore ?? 0;
+    let spamScore = oldScore;
+    let contentKind = current.contentKind;
+    if (isSpam && !wasJudgedSpam) {
+      spamScore = Math.max(oldScore, 75);
+      contentKind = "spammy";
+    } else if (!isSpam && wasJudgedSpam) {
+      spamScore = Math.min(oldScore, 30);
+      contentKind = "normal";
+    }
+    const updated: StoredMail = {
+      ...current,
+      contentKind,
+      spamScore,
+      spamReasons: [
+        ...(current.spamReasons || []),
+        { label: isSpam ? "你的纠正：这是垃圾邮件，已记住这个发件人" : "你的纠正：不是垃圾，已记住这个发件人", delta: spamScore - oldScore },
+      ],
+    };
+    this.persistConfig();
+    const mail = this.recordMail(updated, true);
+    return {
+      mail,
+      learned: {
+        ...learned,
+        corrections: this.config.learning.corrections,
+        progress: learningProgress(this.config.learning.corrections),
+      },
+    };
   }
 
   clearMails(): void {

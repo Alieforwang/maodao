@@ -6,6 +6,7 @@ import { extractFromMail } from "../shared/extract.js";
 import { explainImapError, isAuthFailure } from "../shared/redact.js";
 import { parseRawMail } from "../shared/mail.js";
 import { classifySpam } from "../shared/spam.js";
+import { GRAY_ZONE_MAX, GRAY_ZONE_MIN } from "../shared/learning.js";
 import { imapLoginUser } from "../shared/outlookMailbox.js";
 import { needsImapId, normalizePassword } from "../shared/presets.js";
 import type { Account, AccountStatus, MailHeaders, SecretPayload, Settings, StoredMail } from "../shared/types.js";
@@ -51,6 +52,10 @@ export interface MonitorDeps {
   onMail?(mail: StoredMail): void;
   onAiStatus?(message: string): void;
   getAiKey(): string;
+  /** Learned score offsets for a sender (learning layer), fed into classifySpam. */
+  getSpamAdjust?(from: string): { sender?: number; domain?: number };
+  /** A freshly stored mail landed in the gray zone; the owner may ask the AI to adjudicate. */
+  onGrayZone?(mail: StoredMail): void;
 }
 
 type IdleClient = ImapFlow & { capabilities: Map<string, unknown> };
@@ -458,8 +463,9 @@ export class MailMonitor {
         headers: mailHeaders,
         classification: found.classification,
         userBlocked: muted,
+        adjust: this.deps.getSpamAdjust?.(from),
       });
-      this.deps.onMail?.({
+      const storedMail: StoredMail = {
         id,
         accountId: account.id,
         email: account.email,
@@ -480,7 +486,9 @@ export class MailMonitor {
         spamScore: spam.spamScore,
         spamReasons: spam.spamReasons,
         headers: mailHeaders,
-      });
+      };
+      this.deps.onMail?.(storedMail);
+      if (spam.spamScore >= GRAY_ZONE_MIN && spam.spamScore <= GRAY_ZONE_MAX) this.deps.onGrayZone?.(storedMail);
     }
     this.deps.remember(id);
     if (decision.action !== "notify") return;

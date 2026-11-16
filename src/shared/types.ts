@@ -1,3 +1,5 @@
+import type { LearningSummary } from "./learning.js";
+
 export type ProviderId = "qq" | "netease" | "gmail" | "outlook";
 
 export type AuthMethod = "password" | "oauth";
@@ -43,6 +45,10 @@ export interface Settings {
   aiEnabled: boolean;
   aiPreset: "deepseek" | "sub2" | "custom";
   aiFormat: "openai" | "anthropic";
+  /** Let the AI adjudicate gray-zone mail classification (needs aiEnabled). */
+  aiFilter: boolean;
+  /** Synced model lists, keyed by `${aiPreset}|${aiBaseUrl}|${aiFormat}`. */
+  aiModelCache: Record<string, { models: string[]; at: number }>;
   aiBaseUrl: string;
   aiModel: string;
   /** 高级：连高置信的规则结果也再问一次模型，但模型不能推翻高置信规则。 */
@@ -175,6 +181,7 @@ export interface AppState {
   update: UpdateStatus;
   aiKeySaved: boolean;
   aiStatus: string;
+  learning: LearningSummary;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -193,6 +200,8 @@ export const DEFAULT_SETTINGS: Settings = {
   aiEnabled: false,
   aiPreset: "custom",
   aiFormat: "openai",
+  aiFilter: true,
+  aiModelCache: {},
   aiBaseUrl: "",
   aiModel: "",
   aiEveryMessage: false,
@@ -230,6 +239,8 @@ export interface MailSummary {
   spamScore?: number;
   /** Explainable ledger behind spamScore. */
   spamReasons?: SpamReason[];
+  /** True when the AI adjudicated this mail's content kind / risk in the gray zone. */
+  aiJudged?: boolean;
 }
 
 export interface StoredMail extends MailSummary {

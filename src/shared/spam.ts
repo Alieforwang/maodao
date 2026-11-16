@@ -10,6 +10,8 @@ export interface SpamInput {
   classification: MailClass;
   /** The user marked this sender domain as not-a-code / muted. */
   userBlocked?: boolean;
+  /** Learned offsets from the user's earlier corrections (learning layer). */
+  adjust?: { sender?: number; domain?: number };
 }
 
 export interface SpamVerdict {
@@ -88,6 +90,10 @@ export function classifySpam(input: SpamInput): SpamVerdict {
     else add("使用短链接隐藏真实地址", 8);
   }
   if (urls.length >= 4) add(`正文包含 ${urls.length} 个链接`, 8);
+
+  // Learning layer: offsets the user taught us through corrections (sender and domain stack).
+  if (input.adjust?.sender) add(input.adjust.sender < 0 ? "你纠正过这个发件人：不是垃圾" : "你纠正过这个发件人：是垃圾", input.adjust.sender);
+  if (input.adjust?.domain) add(input.adjust.domain < 0 ? "你纠正过这个域名：不是垃圾" : "你纠正过这个域名：是垃圾", input.adjust.domain);
 
   // Anti-false-positive cap: a confidently recognised code from an authenticated sender is not junk.
   if (input.classification === "code" && headers.spf === "pass" && headers.dkim === "pass" && score > 45) {
